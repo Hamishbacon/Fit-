@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hellbreach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Chakra+Petch:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="css/game.css">
+<link rel="stylesheet" href="css/story.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="toasts"></div>
+<div id="scope" hidden></div>
+
+<div class="hud" id="hud" hidden>
+  <div id="rage"></div><div id="corr"></div><div id="gaze"></div><div id="chronoFx"></div><div id="shieldFx"></div><div id="vig"></div><div id="gibflash"></div><div id="lowhp"></div>
+  <div id="cross"><i></i><i></i><i></i><i></i></div>
+  <div id="hitm"><i></i><i></i><i></i><i></i></div>
+  <div class="tl">
+    <div class="chip" id="wave">WAVE <b>1</b></div>
+    <div class="chip" id="left">FOES <b>0</b></div>
+    <div id="tracker" hidden></div>
+  </div>
+  <div class="tr">
+    <div class="chip">COINS <b id="hcoins">0</b></div>
+    <div class="chip">SCORE <b id="hscore">0</b></div>
+    <canvas id="mm" width="168" height="168"></canvas>
+    <div class="chip" id="keyi" hidden>SKULL KEY</div>
+  </div>
+  <div id="objective"></div>
+  <div id="objbar" hidden><span id="ob_lbl"></span><div class="bar"><i id="ob_fill"></i></div></div>
+  <div id="actbar" hidden><span id="ab_lbl"></span><div class="bar"><i id="ab_fill"></i></div></div>
+  <div class="chip" id="carry" hidden></div>
+  <div id="markers"></div>
+  <div id="boss" hidden><div class="nm"><span id="bname">BOSS</span> <em id="btitle"></em> <b id="bphase"></b></div><div class="bar"><i id="bbar"></i></div><div class="brk"><i id="bbrk"></i></div></div>
+  <div id="nums"></div><div id="feed"></div><div id="finish" hidden>PRESS F TO FINISH</div>
+  <div id="banner"></div>
+  <div id="abil"><div class="ab" id="ab_dash"></div><div class="ab" id="ab_flame"></div><div class="ab" id="ab_p2"></div><div class="ab rage" id="ab_rage"></div></div>
+  <div class="br">
+    <div id="ammo">12<small>/12</small></div>
+    <div id="wname">BLASTER P1</div>
+    <div id="slots"></div>
+    <div id="nades">GRENADES 3</div>
+  </div>
+  <div class="bl status">
+    <div class="vit"><div class="vlab">HEALTH</div><div class="vnum"><span class="cross">+</span><b id="hpbig">100</b></div></div>
+    <div class="vit"><div class="vlab">ARMOR</div><div class="vnum ar"><span class="cross">◆</span><b id="arbig">0</b></div></div>
+    <div class="bars"><div id="hpwrap"><div id="hpbar"></div><div id="hptxt">100</div></div><div id="arwrap"><div id="arbar"></div><div id="artxt">0 ARMOR</div></div></div>
+  </div>
+  <div class="chip" id="hint">ESC PAUSE</div>
+</div>
+
+<div id="touch" hidden>
+  <div id="stick"><div id="knob"></div></div>
+  <div class="tbtn" id="tfire">FIRE</div>
+  <div class="tbtn" id="tjump">JUMP</div>
+  <div class="tbtn" id="tswap">SWAP</div>
+  <div class="tbtn" id="treload">RELOAD</div>
+  <div class="tbtn" id="tnade">NADE</div>
+  <div class="tbtn" id="tmelee">MELEE</div>
+  <div class="tbtn" id="tdash">DASH</div>
+  <div class="tbtn" id="tflame">ABILITY</div>
+</div>
+
+<div class="screen" id="menu">
+  <div class="card">
+    <div>
+      <div class="logo">HELL<span>BREACH</span></div>
+      <div class="tag">The gate is open. Rip through demon hordes, break the Warlords, claim every weapon.</div>
+    </div>
+    <div class="bank"><div class="chip">COINS <b id="mcoins">0</b></div><div class="chip">STARS <b id="mstars">0</b></div><div class="chip">SURVIVAL BEST <b id="mbest">0</b></div><div class="chip rankc">RANK <b id="mrank">1</b> <span id="mtitle"></span><span class="mxpb"><i id="mxp"></i></span></div><div class="chip spc" id="msp" hidden></div></div>
+    <div class="tabs">
+      <button id="tabLevels" class="sel">CAMPAIGN</button>
+      <button id="tabArmory">ARMORY</button>
+      <button id="tabUpg">UPGRADES</button>
+      <button id="tabSurv">SURVIVAL</button>
+      <button id="tabBest">DEMONS</button>
+      <button id="tabSkills">SKILLS</button>
+      <button id="tabRelics">RELICS</button>
+      <button id="tabAch">ACHIEVEMENTS</button>
+      <button id="tabSet">SETTINGS</button>
+    </div>
+    <div id="panel"></div>
+    <div class="help"><kbd>WASD</kbd> move · <kbd>MOUSE</kbd> aim · <kbd>CLICK</kbd> fire · <kbd>RIGHT CLICK</kbd> zoom · <kbd>SPACE</kbd> jump · <kbd>SHIFT</kbd> sprint · <kbd>R</kbd> reload · <kbd>E</kbd> dash · <kbd>X</kbd> / <kbd>C</kbd> powers · <kbd>Z</kbd> rage · <kbd>G</kbd> grenade · <kbd>F</kbd> melee / finisher · <kbd>1-9</kbd> / <kbd>WHEEL</kbd> switch gun · <kbd>ESC</kbd> pause<br>Look for golden Trial Portals in 8 of the levels. Beat the challenge inside for exclusive weapons and perks.<br>Headshots deal double damage. Badly hurt demons flash orange: hit F up close to finish them for health. Every kill drops red blood orbs that heal you. Keys and difficulty are in Settings. Rated 15+ for cartoon gore. On a phone, use the on-screen stick and buttons.</div>
+  </div>
+</div>
+
+<div class="screen" id="pause" hidden>
+  <div class="card res">
+    <h2>PAUSED</h2>
+    <div class="row"><button class="go" id="resume">RESUME</button><button id="quit">QUIT TO MENU</button></div>
+    <div class="help">Click Resume to lock the mouse again.</div>
+  </div>
+</div>
+
+<div class="screen trial" id="trialAsk" hidden><div class="card res" id="trialBody"></div></div>
+<div class="screen trial" id="reward" hidden><div class="card res" id="rewardBody"></div></div>
+<div class="screen" id="result" hidden>
+  <div class="card res" id="resbody"></div>
+</div>
+
+<div id="comms" hidden><canvas id="cport" width="64" height="64"></canvas><div class="ctext"><div class="cname"><b id="cname"></b><span id="crole"></span></div><p id="ctxt"></p></div></div>
+<div id="cine" hidden><div class="lb top"></div><div class="lb bot"></div><div id="cinecard"><span id="cc_kick"></span><b id="cc_name"></b><small id="cc_sub"></small></div><button id="cineskip">SKIP ▸</button></div>
+
+<div class="screen story" id="story" hidden><div class="card scard"><div class="st_kick" id="st_kick"></div><p class="st_text" id="st_text"></p><div id="st_lines"></div><div class="row"><button class="go" id="st_next">NEXT ▸</button></div><div class="help">Space or click to continue</div></div></div>
+<div class="screen brief" id="brief" hidden><div class="card" id="briefBody"></div></div>
+<div class="screen trial" id="boon" hidden><div class="card res" id="boonBody"></div></div>
+
+<!-- three.js r128, vendored so the game runs offline and from file:// -->
+<script src="vendor/three.min.js"></script>
+<script src="js/core/engine.js"></script>
+<script src="js/core/demons.js"></script>
+<script src="js/core/player.js"></script>
+<script src="js/core/world.js"></script>
+<script src="js/core/game.js"></script>
+<script src="js/core/upgrades.js"></script>
+<script src="js/core/loop.js"></script>
+<script src="js/core/settings.js"></script>
+<script src="js/core/ai.js"></script>
+<script src="js/core/run.js"></script>
+<script src="js/core/trials.js"></script>
+<script src="js/core/trials2.js"></script>
+<script src="js/core/weapons2.js"></script>
+<script src="js/core/progression.js"></script>
+<script src="js/core/input.js"></script>
+<script src="js/core/minimap.js"></script>
+<script src="js/story/cast.js"></script>
+<script src="js/story/comms.js"></script>
+<script src="js/story/script.js"></script>
+<script src="js/systems/actors.js"></script>
+<script src="js/systems/missions.js"></script>
+<script src="js/systems/bosses.js"></script>
+<script src="js/systems/codex.js"></script>
+<script src="js/systems/modes.js"></script>
+<script src="js/ui/menu.js"></script>
+</body>
+</html>
