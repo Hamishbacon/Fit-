@@ -10,7 +10,7 @@
 function makeHuman(o){
   o=o||{};const s=o.scale||1;const g=new THREE.Group();
   const suit=skinMat(o.suit||0x4a5a6a),armor=skinMat(o.armor||0x6a7a8a),skin=skinMat(o.skin||0xb07a58),dark=mat(0x1a1a1e);
-  const add=(m,sx,sy,sz,x,y,z,p=g)=>{const b=new THREE.Mesh(boxGeo,m);b.castShadow=true;b.scale.set(sx*s,sy*s,sz*s);b.position.set(x*s,y*s,z*s);p.add(b);return b;};
+  const add=(m,sx,sy,sz,x,y,z,p=g)=>{const b=new THREE.Mesh(rboxGeo,m);b.castShadow=true;b.scale.set(sx*s,sy*s,sz*s);b.position.set(x*s,y*s,z*s);p.add(b);return b;};
   const legL=new THREE.Group(),legR=new THREE.Group(),armL=new THREE.Group(),armR=new THREE.Group(),body=new THREE.Group();g.add(body);
   legL.position.set(-.14*s,.78*s,0);legR.position.set(.14*s,.78*s,0);armL.position.set(-.36*s,1.42*s,0);armR.position.set(.36*s,1.42*s,0);body.add(legL,legR,armL,armR);
   add(suit,.22,.78,.24,0,-.39,0,legL);add(suit,.22,.78,.24,0,-.39,0,legR);add(dark,.24,.12,.3,0,-.74,.03,legL);add(dark,.24,.12,.3,0,-.74,.03,legR);

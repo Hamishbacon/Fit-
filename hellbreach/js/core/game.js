@@ -81,7 +81,7 @@ function nextWave(){
 const _makeBody=makeBody;
 makeBody=function(T,s,boss){
   const B=_makeBody(T,s,boss);const g=B.g;
-  const add=(m,sx,sy,sz,x,y,z,p=g)=>{const b=new THREE.Mesh(boxGeo,m);b.castShadow=true;b.scale.set(sx*s,sy*s,sz*s);b.position.set(x*s,y*s,z*s);p.add(b);return b;};
+  const add=(m,sx,sy,sz,x,y,z,p=g)=>{const b=new THREE.Mesh(rboxGeo,m);b.castShadow=true;b.scale.set(sx*s,sy*s,sz*s);b.position.set(x*s,y*s,z*s);p.add(b);return b;};
   if(T.bloat){const belly=new THREE.Mesh(new THREE.SphereGeometry(.55*s,8,6),skinMat(T.col));belly.position.set(0,1.05*s,.1*s);belly.scale.set(1.15,1,1.1);belly.castShadow=true;g.add(belly);B.belly=belly;
     for(let i=0;i<6;i++)add(mat(0xd8ff4a,0x667700),.12,.12,.12,rand(-.45,.45),1.05+rand(-.4,.4),.55);}
   if(T.shield){const sh=new THREE.Mesh(new THREE.BoxGeometry(1.3*s,1.5*s,.08*s),new THREE.MeshBasicMaterial({color:0x3ac0ff,transparent:true,opacity:.45}));sh.position.set(0,1.05*s,.55*s);g.add(sh);B.shield=sh;
