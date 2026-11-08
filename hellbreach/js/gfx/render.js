@@ -133,8 +133,10 @@ Post.init();applyGfx();gunKey.intensity=.6;
 const _rsG=renderSettings;
 renderSettings=function(P_){_rsG(P_);const sec=document.createElement('section');sec.className='wide';
   sec.innerHTML='<h3>GRAPHICS</h3><div class="sr"><label>Quality</label><div class="dif">'+[['high','HIGH'],['medium','MEDIUM'],['low','LOW']].map(([k,l])=>'<button data-gfx="'+k+'" class="'+((S.gfx||'high')===k?'sel':'')+'">'+l+'</button>').join('')+'</div></div>'+
+   '<div class="sr"><label>Cutscenes (mission intros, boss intros, outros)</label><button class="tg'+(save.skipCine?'':' on')+'" id="s_cine">'+(save.skipCine?'OFF':'ON')+'</button></div>'+
    '<div class="note">High: bloom, film grade, anti-aliasing, sharp shadows. Medium: bloom and grade, softer shadows. Low: no post-processing, for slower devices. "Pixel look" above brings back the retro 8-bit style.</div>';
   P_.querySelector('.set').insertBefore(sec,P_.querySelector('.set').firstChild);
+  sec.querySelector('#s_cine').onclick=()=>{save.skipCine=!save.skipCine;persist();renderTab('settings');};
   sec.querySelectorAll('[data-gfx]').forEach(b=>b.onclick=()=>{S.gfx=b.dataset.gfx;saveSettings();applyGfx();renderTab('settings');});};
 const _asG=applySettings;applySettings=function(){_asG();if(Post.comp)Post.size();};
 showMenu();

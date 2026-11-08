@@ -54,7 +54,9 @@
 @media (max-width:760px){#tracker{display:none}}
 
 /* ---------- STORY CARDS ---------- */
-.screen.story,.screen.brief{background:radial-gradient(ellipse at 50% 40%,#1a0606aa,#050101f4 75%)}
+.screen.brief{background:radial-gradient(ellipse at 50% 40%,#1a0606aa,#050101f4 75%)}
+.screen.story{background:linear-gradient(90deg,#050101e8 0,#050101b0 45%,#05010120 75%,transparent 100%)}
+@media (max-width:760px){.screen.story{background:linear-gradient(0deg,#050101f0 0,#050101b0 55%,transparent 100%)}}
 .scard{width:min(760px,100%);gap:16px;text-align:left}
 .st_kick{font-family:var(--display);font-size:13px;letter-spacing:.35em;color:var(--hot)}
 .st_text{font-size:clamp(18px,2.6vw,26px);line-height:1.5;margin:0;min-height:3em;text-wrap:pretty}

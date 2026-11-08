@@ -235,7 +235,7 @@ function buildRims(need,look,rnd){const m=GFX.mat(look.wall[0],look.wall[1]);con
 function buildIslands(L,look,rnd){
   const fm=GFX.mat(look.floor[0],look.floor[1]);const wm=GFX.mat(look.wall[0],look.wall[1]);
   for(const R of grid.rooms){const w=(R.i1-R.i0+1)*C,d=(R.j1-R.j0+1)*C;const top=new THREE.Mesh(boxGeo,blockMat(look.floor[0],look.floor[1],Math.round(d/C),Math.round(w/C)));top.scale.set(w,1.2,d);top.position.set(R.cx,-.6,R.cz);top.receiveShadow=true;world.add(top);
-    const under=new THREE.Mesh(ROCKS[R.idx%4],wm);under.scale.set(w*.52,Math.max(w,d)*.8,d*.52);under.position.set(R.cx,-Math.max(w,d)*.62,R.cz);world.add(under);}
+    const under=new THREE.Mesh(ROCKS[R.idx%4],wm);under.scale.set(w*.52,Math.max(w,d)*.8,d*.52);under.position.set(R.cx,-Math.max(w,d)*.72-1.3,R.cz);world.add(under);}
   // bridges: corridor cells
   const bm=GFX.mat(look.floor[1]==='bone'?0xd8ccb0:0x4a4a52,look.floor[1]==='bone'?'bone':'metal');const deck=[],posts=[];
   for(let k=0;k<N*N;k++){if(grid.roomOf[k]>=0)continue;const tt=grid.t[k];if(tt!==T_FLOOR&&tt!==T_DOOR)continue;const i=k%N,j=(k/N)|0;deck.push([cx(i),-.25,cx(j),C,.5,C,0,0,0]);
