@@ -34,7 +34,7 @@ const _mkB=makeBody;
 makeBody=function(T,s,boss){
   if(boss&&T.body&&ARCH[T.body])return ARCH[T.body](T,s);
   const B=_mkB(T,s,boss);const g=B.g;
-  const add=(m,sx,sy,sz,x,y,z,p=g)=>{const b=new THREE.Mesh(boxGeo,m);b.castShadow=true;b.scale.set(sx*s,sy*s,sz*s);b.position.set(x*s,y*s,z*s);p.add(b);return b;};
+  const add=(m,sx,sy,sz,x,y,z,p=g)=>{const b=new THREE.Mesh(rboxGeo,m);b.castShadow=true;b.scale.set(sx*s,sy*s,sz*s);b.position.set(x*s,y*s,z*s);p.add(b);return b;};
   if(T.ai==='revenant'){for(const sx of[-1,1]){add(skinMat(0x3a3a3a),.22,.3,.3,sx*.42,1.85,-.05);add(mat(0xff8a3a,0xff5a00),.12,.06,.12,sx*.42,2.02,-.05);}for(let i=0;i<3;i++)add(mat(0xd8ccb0),.42,.05,.32,0,1.0+i*.14,.16);}
   if(T.armored){add(skinMat(0x6a6a72),.85,.95,.14,0,1.15,.26);add(skinMat(0x6a6a72),.62,.25,.14,0,1.72,.27);const core=add(mat(0xff6a1a,0xff4a00),.32,.32,.1,0,1.2,-.22);core.userData.keep=true;B.core=core;}
   return B;
@@ -42,7 +42,7 @@ makeBody=function(T,s,boss){
 
 /* ---------- BOSS ARCHETYPES ---------- */
 const dummyG=()=>new THREE.Group();
-function boxIn(p,m,sx,sy,sz,x,y,z){const b=new THREE.Mesh(boxGeo,m);b.castShadow=true;b.scale.set(sx,sy,sz);b.position.set(x,y,z);p.add(b);return b;}
+function boxIn(p,m,sx,sy,sz,x,y,z){const b=new THREE.Mesh(rboxGeo,m);b.castShadow=true;b.scale.set(sx,sy,sz);b.position.set(x,y,z);p.add(b);return b;}
 function hitPair(g,hb,hh){const a=new THREE.Mesh(boxGeo,new THREE.MeshBasicMaterial({visible:false})),b=new THREE.Mesh(boxGeo,new THREE.MeshBasicMaterial({visible:false}));a.scale.set(...hb[0]);a.position.set(...hb[1]);b.scale.set(...hh[0]);b.position.set(...hh[1]);g.add(a,b);return[a,b];}
 const ARCH={
  spider(T,s){const g=new THREE.Group();const sk=skinMat(T.col),dk=skinMat(T.shirt),ey=mat(T.eye,T.eye);

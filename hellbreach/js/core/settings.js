@@ -7,7 +7,7 @@ const DIFFS={
  ultra:{label:'ULTRA',hp:2.4,dmg:2.6,coins:2.5,desc:'Unlocked at rank 40. 150% more coins and XP. Legendary relics can drop.'}
 };
 const ACTIONS=[['fwd','Move forward','KeyW'],['back','Move back','KeyS'],['left','Strafe left','KeyA'],['right','Strafe right','KeyD'],['jump','Jump','Space'],['sprint','Sprint','ShiftLeft'],['reload','Reload','KeyR'],['nade','Throw grenade','KeyG'],['melee','Melee / finisher','KeyF'],['dash','Dash','KeyE'],['flame','Power slot 1','KeyX'],['power2','Power slot 2','KeyC'],['rage','Rage','KeyZ'],['next','Next weapon','KeyQ'],['pause','Pause','KeyP']];
-const S_DEFAULT={music:.6,pix:2,shadows:true,diff:'normal',sens:1,invert:false,fov:78,vol:.7,gore:'full',dmgNums:true,bars:true,aimAssist:true,shake:1,xcol:'#f2e6d8',kb:Object.fromEntries(ACTIONS.map(a=>[a[0],a[2]]))};
+const S_DEFAULT={music:.6,pix:1,gfx:'high',shadows:true,diff:'normal',sens:1,invert:false,fov:78,vol:.7,gore:'full',dmgNums:true,bars:true,aimAssist:true,shake:1,xcol:'#f2e6d8',kb:Object.fromEntries(ACTIONS.map(a=>[a[0],a[2]]))};
 let S=JSON.parse(JSON.stringify(S_DEFAULT));
 try{const s=JSON.parse(localStorage.getItem('hellbreach-settings'));if(s){S=Object.assign(S,s);S.kb=Object.assign({},S_DEFAULT.kb,s.kb||{});if(S.music===undefined)S.music=.6;}}catch(e){}
 function saveSettings(){try{localStorage.setItem('hellbreach-settings',JSON.stringify(S));}catch(e){}applySettings();}

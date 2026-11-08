@@ -35,7 +35,7 @@ function bossIntro(e){
   if(e.heads)for(const h of e.heads)headTick(h,0);
   const say=()=>{if(L.intro)Comms.say(bossVoice(e),L.intro,{now:true,dur:Math.max(3.4,L.intro.length*.06)});};
   const hints=()=>{if(L.hint)setTimeout(()=>{if(G.state==='play'&&G.bossE===e){Comms.seq(L.hint);if(G.squad)Allies.chat('marineBoss',true);}},2200);};
-  if(!story||save.skipCine){say();hints();return;}
+  if(!story||save.skipCine||G._shortIntro){say();hints();return;}
   const face=bossFace(e);const eye=V3(P.pos.x,P.pos.y+P.height,P.pos.z);const fwd=new THREE.Vector3();camera.getWorldDirection(fwd);const look0=eye.clone().addScaledVector(fwd,10);
   const s=e.size;const near=face.clone().addScaledVector(to,s*2.2+3).add(V3(0,-s*.35,0));const far=face.clone().addScaledVector(to,s*3.4+5).add(V3(-to.z*3,s*.4,to.x*3));
   const B=e.body;

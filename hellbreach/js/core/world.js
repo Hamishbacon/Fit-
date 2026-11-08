@@ -40,11 +40,11 @@ function addTorch(x,z,h,col,withLight){
   torches.push({f,l,t:Math.random()*10});
 }
 /* pooled lights: a fixed light count means no shader recompiles while you play */
-const roomLights=[];for(let i=0;i<5;i++){const l=new THREE.PointLight(0xff5a1a,0,26,1.6);scene.add(l);roomLights.push(l);}
+const roomLights=[];for(let i=0;i<8;i++){const l=new THREE.PointLight(0xff5a1a,0,26,1.6);scene.add(l);roomLights.push(l);}
 const flashPool=[];for(let i=0;i<4;i++){const l=new THREE.PointLight(0xffffff,0,10);scene.add(l);flashPool.push({l,life:0,max:1,i:0});}
 lightFlash=function(pos,col,intensity,dist,life){const f=flashPool.reduce((a,b)=>a.life<b.life?a:b);f.l.position.copy(pos);f.l.color.set(col);f.l.distance=dist;f.i=intensity;f.life=f.max=life;f.l.intensity=intensity;};
 frameHooks.push(dt=>{for(const f of flashPool){if(f.life>0){f.life-=dt;f.l.intensity=f.i*Math.max(0,f.life/f.max);}}});
-function lightRoom(r){const col=G.L?G.L.torch:0xff5a1a;roomLights.forEach((l,i)=>{const p=r&&r.lights[i];if(p){l.position.set(p[0],p[1],p[2]);l.color.set(col);l.intensity=1.9;}else l.intensity=0;});}
+function lightRoom(r){const col=G.L?G.L.torch:0xff5a1a;const st=G.L&&G.L.style;roomLights.forEach((l,i)=>{const p=r&&r.lights[i];if(p){l.position.set(p[0],p[1],p[2]);l.color.set(st&&st.lightCol!=null?st.lightCol:col);l.intensity=st?st.lightI:1.9;l.distance=st?st.lightD:26;}else l.intensity=0;});}
 frameHooks.push(()=>{sun.position.set(P.pos.x+28,50,P.pos.z+18);sun.target.position.set(P.pos.x,0,P.pos.z);sun.target.updateMatrixWorld();});
 Object.assign(sun.shadow.camera,{left:-34,right:34,top:34,bottom:-34});sun.shadow.camera.updateProjectionMatrix();
 
@@ -115,6 +115,7 @@ function genLevel(L,seed,single){
     else if(tpl==='halls'){const wi=R.i0+3;for(let j=R.j0+2;j<=R.j1-2;j++){if(Math.abs(j-ccy)<1.2)continue;set(wi,j,T_WALL,3.2);}cover(2);}
     else if(tpl==='lavafield'){for(let n=0;n<3;n++){let[i,j]=pick();for(let s=0;s<6;s++){set(i,j,T_LAVA);const d=[[1,0],[-1,0],[0,1],[0,-1]][Math.floor(r()*4)];i+=d[0];j+=d[1];}}plat(2);}
     else if(tpl==='ledges'){for(const jj of[R.j0,R.j1])for(let i=R.i0+2;i<=Math.floor(ccx);i++)set(i,jj,T_PLAT,2.4);for(const jj of[R.j0,R.j1])if(ok(R.i0+1,jj))set(R.i0+1,jj,T_STAIR,2.4,[1,0],0);cover(2);}
+    else if(tpl==='nave'){for(const fy of[.2,.4,.6,.8]){set(Math.round(R.i0+(R.w-1)*.2),Math.round(R.j0+(R.h-1)*fy),T_PILLAR,9);}cover(2);}
     else if(tpl==='pillars'){for(const[fx,fy]of[[.22,.25],[.22,.75]])set(Math.round(R.i0+(R.w-1)*fx),Math.round(R.j0+(R.h-1)*fy),T_PILLAR,6);cover(3);plat(1);}
     else if(tpl==='arena'){const long=R.h>R.w;const n=long?3:2;for(let q=0;q<n;q++){const fy=(q+.5)/n;set(Math.round(R.i0+(R.w-1)*.24),Math.round(R.j0+(R.h-1)*fy),T_PILLAR,7);}
       if(!long){for(let q=0;q<3;q++)set(Math.round(R.i0+(R.w-1)*.24),Math.round(R.j0+(R.h-1)*(q+.5)/3),T_PILLAR,7);}
@@ -187,7 +188,7 @@ function buildWorld(L,seedNum,opts){
   const em=new THREE.Points(eg,new THREE.PointsMaterial({color:L.torch,size:.15}));world.add(em);world.userData.embers=em;
   lightRoom(grid.rooms[0]);
 }
-function setDoor(d,open){if(d.open===open)return;d.open=open;d.solid.off=open;for(const k of d.cells)grid.dc[k]=open?0:1;d.anim=open?-7:3.4;if(!open)tone('sawtooth',90,60,.4,.25);else tone('',600,0,.4,.25,true);}
+function setDoor(d,open){if(d.open===open)return;d.open=open;d.solid.off=open;for(const k of d.cells)grid.dc[k]=open?0:1;d.anim=open?(d.yOpen??-7):(d.yClosed??3.4);if(!open)tone('sawtooth',90,60,.4,.25);else tone('',600,0,.4,.25,true);}
 frameHooks.push(dt=>{if(!grid||!grid.doors)return;for(const d of grid.doors){if(d.anim==null||!d.mesh)continue;d.mesh.position.y+=(d.anim-d.mesh.position.y)*Math.min(1,dt*6);if(Math.abs(d.anim-d.mesh.position.y)<.02){d.mesh.position.y=d.anim;d.anim=null;}}});
 
 /* ---------- PLACEMENT HELPERS ---------- */

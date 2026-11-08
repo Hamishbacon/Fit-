@@ -1,8 +1,28 @@
 # HELLBREACH
 
-A retro first-person shooter that sits between Doom and Halo. You get Doom's speed, gore, glory kills and arena fights, plus Halo's squadmates, radio chatter, objectives and story.
+A first-person shooter that sits between Doom and Halo. You get Doom's speed, gore, glory kills and arena fights, plus Halo's squadmates, radio chatter, objectives and story.
 
 Open `index.html` in a browser. No server or install is needed, and three.js is vendored, so it also runs offline.
+
+## What's new in this version
+
+- **Modern graphics.** High-resolution textures with surface detail (normal maps), realistic lighting, smoother models, bloom, filmic colour grading and anti-aliasing. Settings has High/Medium/Low quality presets; the old 8-bit look is still available under "Pixel look".
+- **Every map is a different place.** There are five architectures:
+  - roofed industrial facilities with blast doors, light panels and pipes
+  - towering cathedral and forge halls with stained glass, chandeliers and banners
+  - irregular caverns under rock ceilings with stalactites
+  - open-sky canyons and wastelands with cliffs, distant mountains and set pieces on the horizon
+  - floating islands over a void or a lava sea, joined by bridges
+
+  Each level also has its own materials, props, sky, weather (snow, ash, embers, spores) and light.
+- **Cutscenes.** Every mission opens with a cinematic: a dropship insertion on open-sky maps, or a push-in on the Warden indoors. Missions end with an outro shot. The prologue, interludes and ending play over rendered 3D scenes: Erebus and the Breach, the Long Vigil, the cryo pod, the gate and the Hollow Crown. Cutscenes can be turned off in Settings.
+- **The story is in the levels.** Holographic *echoes* replay what happened in each place when you walk near them.
+- **Harder and less predictable.** There is more spawn pressure, there are more waves and elites, and rooms can turn on you partway through:
+  - a reinforcement portal
+  - an invading champion
+  - a swarm flood
+  - a sniper nest
+- **More lore.** World entries, plus a bestiary entry for every demon, unlocked on your first kill.
 
 ## The story
 
@@ -74,6 +94,7 @@ index.html            page markup + script order
 css/game.css          core HUD and menu styles
 css/story.css         comms, cinematics, objectives, briefing, codex, modes
 vendor/three.min.js   three.js r128 (MIT)
+vendor/post/          three.js post-processing passes (MIT)
 js/core/              the original engine, split by system
   engine.js           helpers, weapons data, save, audio, renderer, textures
   demons.js           enemy + boss data, levels, music

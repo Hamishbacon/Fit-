@@ -10,11 +10,12 @@ G.mode='story';
 LEVELS.forEach((L,i)=>{const M=STORY.missions[i];if(M){L.mission=M;L.rooms=M.rooms||L.rooms;}});
 function curMission(){return(!G.survival&&!G.trial&&G.L&&G.L.mission)||null;}
 Object.assign(ENC,{rescue:'RESCUE',escort:'ESCORT',activate:'SABOTAGE',defend:'DEFEND',holdout:'HOLD OUT',capture:'CAPTURE',carry:'RETRIEVE',assassinate:'ASSASSINATE',purify:'PURGE THE ROT',darkness:'BLACKOUT',gauntlet:'GAUNTLET'});
+const HARD={rate:()=>G.mode==='story'||G.mode==='descent'?Math.max(.62,.86-epN()*.05):1,cap:()=>G.mode==='story'||G.mode==='descent'?2+epN():0};
 const liveCount=()=>enemies.filter(e=>!e.T.static).length;
 const epN=()=>(G.L&&G.L.ep)||0;
 function pickType(strong){const pool=G.L.pool;if(strong){const s=['juggernaut','brute','shielder','revenant','gnasher','stalker','fiend','marksman','leaper'].filter(t=>pool.includes(t));if(s.length)return s[Math.floor(Math.random()*Math.min(3,s.length))];}return pool[Math.floor(Math.random()*pool.length)];}
 function openAt(x,z){const k=idx(ci(x),ci(z));return grid.t[k]===T_FLOOR&&grid.roomOf[k]===G.curRoom;}
-function trickle(E,dt,every,cap,near){E.spawnT-=G.dtE;if(E.spawnT>0)return;if(liveCount()>=cap){E.spawnT=.6;return;}
+function trickle(E,dt,every,cap,near){every*=HARD.rate();cap+=HARD.cap();E.spawnT-=G.dtE;if(E.spawnT>0)return;if(liveCount()>=cap){E.spawnT=.6;return;}
   let x,z;if(near&&Math.random()<.55){const a=Math.random()*6.28,r=rand(6,10);x=near.x+Math.cos(a)*r;z=near.z+Math.sin(a)*r;if(!openAt(x,z)||Math.hypot(x-P.pos.x,z-P.pos.z)<7)[x,z]=spawnPoint();}else[x,z]=spawnPoint();
   spawnEnemy(pickType(),x,z);E.spawnT=Math.max(.6,every)*rand(.7,1.3);}
 function wadd(o){world.add(o);return o;}
@@ -417,3 +418,29 @@ clearEntities=function(){_clearEM();Allies.clear();Softs.clear();Markers.set([])
 /* hide allies while inside a trial portal */
 frameHooks.push(()=>{for(const a of Allies.list)a.h.g.visible=!G.trial;});
 const _alliesTick=Allies.tick.bind(Allies);Allies.tick=function(dt){if(G.trial)return;_alliesTick(dt);};
+
+/* ---------- TWISTS: something goes wrong mid-room ---------- */
+const TWISTS={
+ reinforce:{t:[9,14],run(R,E){const[x,z]=spawnPoint();ring(V3(x,surfaceAt(x,z),z),0xff3a1a,6,1);lightFlash(V3(x,2,z),0xff3a1a,5,24,.8);banner('REINFORCEMENTS','A portal tears open',1.8);SFX.boss();
+   Comms.say('vesta','New portal signature. Elites coming through.',{low:true,dur:2.2});const n=2+epN();for(let k=0;k<n;k++)setTimeout(()=>{if(G.state!=='play'||R.state!=='active')return;G.forceElite=1;spawnEnemy(pickType(true),x+rand(-2,2),z+rand(-2,2));G.forceElite=0;},k*450);}},
+ champion:{t:[12,18],run(R,E){const champs=Object.keys(BOSSES).filter(k=>!BOSSES[k].major&&!BOSSES[k].body);const pick=champs[Math.min(champs.length-1,Math.floor(epN()*2+Math.random()*3))];
+   const def=Object.assign({},BOSSES[pick],{hp:BOSSES[pick].hp*.42,title:'Invader'});banner('INVASION',def.name+' has found you',2);E.invader=true;G._shortIntro=true;spawnBoss(def);G._shortIntro=false;
+   Comms.say('okafor','Warden, a champion just tore into your room. It wasn\'t supposed to be here.',{now:true,dur:3});}},
+ swarm:{t:[8,12],run(R,E){banner('THE SWARM','',1.6);SFX.growl();Comms.say('vesta','Mass movement in the walls. Lots of small things.',{low:true,dur:2});const types=['swarmling','leaper','swarmling'];
+   for(let k=0;k<4;k++)setTimeout(()=>{if(G.state!=='play'||R.state!=='active')return;const a=Math.random()*6.28,x=P.pos.x+Math.cos(a)*9,z=P.pos.z+Math.sin(a)*9;if(openAt(x,z))spawnEnemy(types[k%3],x,z);else{const p=spawnPoint();spawnEnemy(types[k%3],p[0],p[1]);}},k*700);}},
+ snipers:{t:[6,10],run(R,E){banner('SNIPERS','Break line of sight',1.8);Comms.say('vesta','Laser sights. Three of them. Use cover.',{low:true,dur:2});
+   const cells=farCells(3,12,8,[T_FLOOR,T_PLAT],R);for(const[i,j]of cells){G.forceElite=1;spawnEnemy('marksman',cx(i),cx(j));G.forceElite=0;}}}
+};
+const _setupTw=setupRooms;
+setupRooms=function(L){_setupTw(L);const M=curMission();if(!M||grid.single)return;
+  const li=G.mode==='story'?G.levelIdx:(G.descent?G.descent.floor:0);if(G.mode==='story'&&li<2)return;if(G.mode==='descent'&&li<3)return;
+  const mains=grid.rooms.filter(r=>r.type==='main').sort((a,b)=>a.order-b.order);if(mains.length<2)return;
+  const keys=Object.keys(TWISTS);const n=G.mode==='story'&&li>=9?2:1;const used=new Set();
+  for(let q=0;q<n;q++){let r;do{r=mains[1+Math.floor(Math.random()*(mains.length-1))];}while(used.has(r)&&used.size<mains.length-1);used.add(r);
+    r.twist=keys[(li*7+q*3+Math.floor(Math.random()*2))%keys.length];if(r.enc==='gauntlet'&&r.twist==='champion')r.twist='swarm';}};
+const _encTw=encTick;
+encTick=function(R,dt){const E=R.es;
+  if(E&&R.twist&&!E.twisted&&R.state==='active'){const T=TWISTS[R.twist];E.twAt=E.twAt||rand(T.t[0],T.t[1]);if(E.t>=E.twAt){E.twisted=true;T.run(R,E);}}
+  if(E&&E.invader&&G.bossE&&E.finishing){E.finT=.6;return;}
+  if(E&&E.invader&&G.bossE&&MK[E.kind]){E.t+=dt;keyBearerTick(R,E);MK[E.kind].tick(R,E,dt);return;}
+  _encTw(R,dt);};

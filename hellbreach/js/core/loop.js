@@ -6,8 +6,7 @@ function loop(now){
   if(G.state==='play')update(dt);
   else if(G.state==='menu'){menuCam+=dt*.07;camera.position.set(Math.cos(menuCam)*26,16,Math.sin(menuCam)*26);camera.lookAt(0,1,0);gunRoot.visible=false;for(const t of torches){t.t+=dt;t.f.scale.y=.7*(.85+Math.sin(t.t*13)*.1);}}
   musicTick();
-  renderer.clear();renderer.render(scene,camera);
-  if(G.state!=='menu'&&gunRoot.visible){renderer.clearDepth();if(gunCam.aspect!==camera.aspect){gunCam.aspect=camera.aspect;gunCam.updateProjectionMatrix();}renderer.render(gunScene,gunCam);}
+  if(typeof renderFrame==='function')renderFrame();else{renderer.clear();renderer.render(scene,camera);}
 }
 function update(dt){
   G.time+=dt;gunRoot.visible=true;

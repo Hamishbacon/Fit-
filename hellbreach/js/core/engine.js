@@ -61,7 +61,7 @@ const SFX={
 const canvas=$('game');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:false});
 renderer.autoClear=false;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
-const pixScale=()=>{try{return (typeof S!=='undefined'&&S.pix)||+(JSON.parse(localStorage.getItem('hellbreach-settings'))||{}).pix||2;}catch(e){return 2;}};
+const pixScale=()=>{try{return (typeof S!=='undefined'&&S.pix)||+(JSON.parse(localStorage.getItem('hellbreach-settings'))||{}).pix||1;}catch(e){return 1;}};
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(75,1,.05,300);
 scene.add(camera);

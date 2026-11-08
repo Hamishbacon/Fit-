@@ -28,8 +28,8 @@ const gunLight=new THREE.PointLight(0xffc06a,0,3);gunCam.add(gunLight);gunLight.
 let gunModel=null,flash=null,flashLight=null,barrels=null;
 function buildGun(w){
   if(gunModel)gunRoot.remove(gunModel);gunModel=new THREE.Group();barrels=null;
-  const metal=skinMat(0x6a6c76),dark=skinMat(0x34343a),wood=skinMat(0x8a5428),acc=mat(w.col,new THREE.Color(w.col).multiplyScalar(.3).getHex());
-  const part=(m,sx,sy,sz,x,y,z,par=gunModel)=>{const b=new THREE.Mesh(boxGeo,m);b.scale.set(sx,sy,sz);b.position.set(x,y,z);par.add(b);return b;};
+  const metal=GFX.mat(0x6a6c76,'metal',{size:128,rough:.55,metal:.45}),dark=GFX.mat(0x2a2a30,'metal',{size:128,rough:.6,metal:.4}),wood=GFX.mat(0x8a5428,'wood',{size:128}),acc=mat(w.col,new THREE.Color(w.col).multiplyScalar(.06).getHex());
+  const part=(m,sx,sy,sz,x,y,z,par=gunModel)=>{const b=new THREE.Mesh(rboxGeo,m);b.scale.set(sx,sy,sz);b.position.set(x,y,z);par.add(b);return b;};
   const cyl=(m,r,l,x,y,z,par=gunModel)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,l,8),m);c.rotation.x=Math.PI/2;c.position.set(x,y,z);par.add(c);return c;};
   let L=.5;
   switch(w.id){
@@ -83,7 +83,7 @@ const enemies=[];const hitboxes=[];
 function makeBody(T,s,boss=false){
   const g=new THREE.Group();
   const skin=skinMat(T.col),cloth=skinMat(T.shirt),dark=mat(0x1a1010),eye=mat(T.eye,T.eye),horn=mat(0xd8ccb0),tooth=mat(0xf0e8d0);
-  const add=(m,sx,sy,sz,x,y,z,parent=g)=>{const b=new THREE.Mesh(boxGeo,m);b.castShadow=true;b.scale.set(sx*s,sy*s,sz*s);b.position.set(x*s,y*s,z*s);parent.add(b);return b;};
+  const add=(m,sx,sy,sz,x,y,z,parent=g)=>{const b=new THREE.Mesh(rboxGeo,m);b.castShadow=true;b.scale.set(sx*s,sy*s,sz*s);b.position.set(x*s,y*s,z*s);parent.add(b);return b;};
   const legL=new THREE.Group(),legR=new THREE.Group(),armL=new THREE.Group(),armR=new THREE.Group();
   let head,hbS,hbY,hhY;
   if(T.flying){

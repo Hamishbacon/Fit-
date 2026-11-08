@@ -46,10 +46,10 @@ function startEnc(R){
   const pool=L.pool;const pk=()=>pool[Math.floor(Math.random()*pool.length)];
   const E=R.es={kind:R.enc,wave:0,queue:[],spawnT:1.2,t:0};
   if(R.enc!=='survival')sealRoom(R,true);
-  if(R.enc==='p'){E.waves=2+(ep>=2?1:0);}
+  if(R.enc==='p'){E.waves=3+(ep>=2?1:0);}
   else if(R.enc==='g'){const n=li>=9?3:2;farCells(n,9,10,[T_FLOOR]).forEach(([i,j])=>G.gates.push(spawnGate(cx(i),cx(j))));E.queue=Array.from({length:2},pk);}
-  else if(R.enc==='s'){E.timeLeft=30+li*1.4;}
-  else if(R.enc==='e'){E.elites=2+(ep>=2?1:0);E.queue=Array.from({length:3+ep},pk);}
+  else if(R.enc==='s'){E.timeLeft=38+li*1.6;}
+  else if(R.enc==='e'){E.elites=3+(ep>=2?1:0);E.queue=Array.from({length:5+ep*2},pk);}
   else if(R.enc==='boss'){queueBoss(L.boss);E.queue=Array.from({length:2+ep},pk);}
   else if(R.enc==='vaultamb'){E.queue=Array.from({length:6+Math.floor(li/3)},pk);E.elites=1+Math.floor(ep/2);}
   else if(R.enc==='survival'){E.survival=true;}
@@ -64,7 +64,7 @@ function encTick(R,dt){
   if(E.keyBearer&&E.t>1.5){E.keyBearer=false;G.forceElite=1;const[x,z]=spawnPoint();const types=pool.filter(t=>!ENEMY[t].swarm);const e=spawnEnemy(types[Math.floor(Math.random()*types.length)],x,z);G.forceElite=0;
     e.keyBearer=true;const k=new THREE.Mesh(boxGeo,mat(0xffcf3a,0xffaa00));k.scale.set(.35,.35,.35);k.position.y=(e.T.flying?3.8:2.5)*e.size;k.userData.keep=true;e.body.g.add(k);e.body.keyIcon=k;feed('A KEY BEARER HAS APPEARED (GOLD CUBE)');}
   if(E.kind==='p'){spawnFromQueue(E,cap);
-    if(!E.queue.length&&alive===0){if(E.wave>=E.waves){clearRoom(R);return;}E.wave++;const n=5+Math.floor(li*.45)+E.wave*2;E.queue=Array.from({length:n},pk);if(E.wave>1)banner('WAVE '+E.wave+' / '+E.waves,n+' demons',1.4);E.spawnT=E.wave===1?.4:1.2;}}
+    if(!E.queue.length&&alive===0){if(E.wave>=E.waves){clearRoom(R);return;}E.wave++;const n=6+Math.floor(li*.55)+E.wave*3;E.queue=Array.from({length:n},pk);if(E.wave>1)banner('WAVE '+E.wave+' / '+E.waves,n+' demons',1.4);E.spawnT=E.wave===1?.4:1.2;}}
   else if(E.kind==='g'){const g=G.gates.filter(x=>x.hp>0);
     for(const x of g){x.spawnCd-=dt;if(x.spawnCd<=0&&enemies.length<cap){x.spawnCd=rand(3.5,6)-ep*.5;spawnEnemy(pk(),x.pos.x+rand(-2,2),x.pos.z+rand(-2,2));}}
     spawnFromQueue(E,cap);if(!g.length&&alive===0&&!E.queue.length)clearRoom(R);}
