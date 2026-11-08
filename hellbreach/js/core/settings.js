@@ -79,7 +79,7 @@ function renderSettings(P_){
    '<section class="wide"><h3>KEY BINDINGS</h3><div class="note">Click a key, then press the new key. Esc cancels. Mouse: left fire, right zoom/scope, wheel switch. Number keys 1–9 pick a weapon.</div><div class="kbs">'+
     ACTIONS.map(([a,l])=>'<div class="sr"><label>'+l+'</label><button class="kb'+(rebindAction===a?' wait':'')+'" data-kb="'+a+'">'+(rebindAction===a?'PRESS A KEY…':keyName(S.kb[a]))+'</button></div>').join('')+
    '</div><div class="row" style="justify-content:flex-start"><button id="s_kreset">RESET KEYS</button><button id="s_allreset">RESET ALL SETTINGS</button></div></section>'+
-   '<section class="wide danger"><h3>PROGRESS</h3><div class="sr"><label>Wipe coins, weapons, stars and best score</label><button id="s_wipe">'+(window._wipeArm?'CLICK AGAIN TO CONFIRM':'RESET PROGRESS')+'</button></div></section>'+
+   '<section class="wide danger"><h3>PROGRESS</h3><div class="sr"><label>Wipe ALL progress: story, coins, weapons, upgrades, skills, relics, codex, records. Settings are kept.</label><button id="s_wipe">'+(window._wipeArm?'CLICK AGAIN TO CONFIRM':'RESET PROGRESS')+'</button></div></section>'+
   '</div>';
   const on=(id,ev,fn)=>{const el=$(id);if(el)el.addEventListener(ev,fn);};
   P_.querySelectorAll('[data-diff]').forEach(b=>b.onclick=()=>{S.diff=b.dataset.diff;saveSettings();renderTab('settings');});
@@ -95,7 +95,7 @@ function renderSettings(P_){
   on('s_kreset','click',()=>{S.kb=Object.assign({},S_DEFAULT.kb);saveSettings();renderTab('settings');});
   on('s_allreset','click',()=>{S=JSON.parse(JSON.stringify(S_DEFAULT));saveSettings();renderTab('settings');});
   on('s_wipe','click',()=>{if(!window._wipeArm){window._wipeArm=true;renderTab('settings');setTimeout(()=>{window._wipeArm=false;},4000);return;}
-    window._wipeArm=false;save={coins:0,owned:['pistol'],stars:{},best:0,unlocked:1};persist();renderTab('settings');feedMenu('Progress reset');});
+    window._wipeArm=false;try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem('hellbreach-save-v1');}catch(e){}window._wiping=true;location.reload();});
 }
 function feedMenu(t){const n=document.createElement('div');n.className='toast';n.textContent=t;document.body.appendChild(n);setTimeout(()=>n.remove(),2000);}
 function captureRebind(e){

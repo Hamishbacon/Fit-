@@ -19,7 +19,7 @@ const WEAPONS=[
 const SAVE_KEY='hellbreach-save-v2';
 let save={coins:0,owned:['pistol'],stars:{},best:0,unlocked:1};
 try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));if(s)save=Object.assign(save,s);}catch(e){}
-function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(e){}}
+function persist(){if(window._wiping)return;try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(e){}}
 
 /* ---------- AUDIO (synth) ---------- */
 let actx=null,master=null;
