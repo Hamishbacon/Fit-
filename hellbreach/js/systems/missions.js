@@ -145,9 +145,9 @@ MK.rescue={name:'RESCUE',sub:'Free the captives',
 
 MK.escort={name:'ESCORT',sub:'Keep them alive. Stay close.',
  start(R,E,sp){const a=entryPoint(R),b=exitPoint(R);const crawler=sp.npc==='crawler';
-  const npc={crawler,g:crawler?Props.crawler():null,h:null,pos:V3(a.x,surfaceAt(a.x,a.z),a.z),path:gridPath(a.x,a.z,b.x,b.z),wp:0,faceA:0,rad:crawler?1.1:.35,goal:b,total:1};
+  const npc={crawler,g:crawler?Props.crawler():null,h:null,pos:V3(a.x,surfaceAt(a.x,a.z),a.z),path:gridPath(a.x,a.z,b.x,b.z,crawler),ghost:crawler,wp:0,faceA:0,rad:crawler?1.1:.35,goal:b,total:1};
   if(!crawler){const H=makeHuman({helmet:false,coat:0xd8d8d8,suit:0x3a3a42,armor:0xd8d8d8,skin:0xd8b8a0,hair:0x9a9aa0,glasses:true,gun:false});npc.g=H.g;npc.h=H;}
-  wadd(npc.g);npc.g.position.copy(npc.pos);E.objs.push(npc.g);E.npc=npc;npc.total=Math.max(1,npc.path.reduce((s,p,i,arr)=>s+(i?p.distanceTo(arr[i-1]):p.distanceTo(npc.pos)),0));
+  if(crawler){clearPath(npc.path);npc.pos.y=0;}wadd(npc.g);npc.g.position.copy(npc.pos);E.objs.push(npc.g);E.npc=npc;npc.total=Math.max(1,npc.path.reduce((s,p,i,arr)=>s+(i?p.distanceTo(arr[i-1]):p.distanceTo(npc.pos)),0));
   const hp=(crawler?1100:520)*(1+epN()*.3);npc.soft=Softs.add({kind:'escort',pos:npc.pos,hp,max:hp,r:crawler?1.6:.6,h:crawler?2.8:1.9,attract:.8,maxAggro:6,onDown:()=>{npc.dead=true;}});
   E.spawnT=2;},
  tick(R,E,dt){const n=E.npc;trickle(E,dt,1.9-epN()*.15,7+epN()*2,n.pos);

@@ -73,23 +73,38 @@ function allyDamage(e,amt,point){G._quiet=true;const h=SFX.hit,hd=SFX.head;SFX.h
   try{damageEnemy(e,amt,false,point,'env');}finally{SFX.hit=h;SFX.head=hd;G._quiet=false;const c=$('cross');if(c&&!c._mine)c.className='';}}
 
 /* ---------- GRID PATHING ---------- */
-function gridPath(ax,az,bx,bz){
+function gridPath(ax,az,bx,bz,wide){
+  const tries=wide?[[1,0],[1,1],[0,0],[0,1]]:[[0,0],[0,1]];
+  for(const[w,lava]of tries){const p=_gridPath(ax,az,bx,bz,!!w,!!lava);if(p)return p;}
+  return[new THREE.Vector3(bx,0,bz)];
+}
+/* wide: room for a vehicle. Only flat floor (cover can be ploughed through) with clearance on every side. */
+function _gridPath(ax,az,bx,bz,wide,lava){
   const s=idx(ci(ax),ci(az)),t=idx(ci(bx),ci(bz));const prev=new Int32Array(N*N).fill(-1);prev[s]=s;const q=[s];let h=0;
-  const pass=k=>{const tt=grid.t[k];if(tt===T_FLOOR||tt===T_STAIR)return true;if(tt===T_DOOR)return !grid.dc[k];if(tt===T_PLAT)return grid.h[k]<=.6;return false;};
+  const base=k=>{const tt=grid.t[k];if(tt===T_FLOOR||(lava&&tt===T_LAVA))return true;if(tt===T_STAIR)return !wide;if(tt===T_DOOR)return !grid.dc[k];if(tt===T_COVER)return wide;if(tt===T_PLAT)return !wide&&grid.h[k]<=.6;return false;};
+  const nearEnd=k=>{const i=k%N,j=(k/N)|0;return Math.max(Math.abs(i-s%N),Math.abs(j-((s/N)|0)))<=1||Math.max(Math.abs(i-t%N),Math.abs(j-((t/N)|0)))<=1;};
+  const pass=k=>{if(!base(k))return false;if(!wide||nearEnd(k)||grid.t[k]===T_DOOR)return true;const i=k%N,j=(k/N)|0;
+    for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const kk=idx(i+a,j+b);const tt=grid.t[kk];if(!(tt===T_FLOOR||tt===T_COVER||tt===T_DOOR||tt===T_LAVA))return false;}return true;};
   while(h<q.length){const k=q[h++];if(k===t)break;const i=k%N,j=(k/N)|0;
     for(const[dx,dz]of[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){const a=i+dx,b=j+dz;if(a<1||b<1||a>N-2||b>N-2)continue;const kk=idx(a,b);if(prev[kk]>=0||!pass(kk))continue;
       if(dx&&dz&&(!pass(idx(i+dx,j))||!pass(idx(i,j+dz))))continue;prev[kk]=k;q.push(kk);}}
-  if(prev[t]<0)return[new THREE.Vector3(bx,0,bz)];
+  if(prev[t]<0)return null;
   const cells=[];for(let k=t;k!==s;k=prev[k])cells.push(k);cells.reverse();
   const pts=[];let lastD=null;for(let n=0;n<cells.length;n++){const k=cells[n],nx=cells[n+1];const d=nx==null?null:(nx-k);if(d!==lastD||nx==null)pts.push(new THREE.Vector3(cx(k%N),0,cx((k/N)|0)));lastD=d;}
-  pts.push(new THREE.Vector3(bx,0,bz));return pts;
+  pts.push(new THREE.Vector3(bx,0,bz));pts.cells=cells;return pts;
 }
+/* knock a cover object out of the way (vehicles plough through crates and boulders) */
+function clearCell(k){if(grid.t[k]!==T_COVER)return;grid.t[k]=T_FLOOR;grid.h[k]=0;
+  for(const o of world.children.slice())if(o.userData&&o.userData.cell===k)world.remove(o);
+  for(const sd of solids)if(sd.mesh&&sd.mesh.userData.cell===k)sd.off=true;
+  burst(new THREE.Vector3(cx(k%N),.6,cx((k/N)|0)),0x8a7a6a,14,5,1.1,.7);}
+function clearPath(path){if(!path.cells)return;for(const k of path.cells){const i=k%N,j=(k/N)|0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)clearCell(idx(i+a,j+b));}}
 /* walk an actor along waypoints; returns true when finished */
 function walkPath(a,dt,speed){
   const w=a.path&&a.path[a.wp];if(!w)return true;const dx=w.x-a.pos.x,dz=w.z-a.pos.z,d=Math.hypot(dx,dz);
   if(d<.6){a.wp++;return a.wp>=a.path.length;}
   const st=Math.min(d,speed*dt);a.pos.x+=dx/d*st;a.pos.z+=dz/d*st;a.faceA=Math.atan2(dx,dz);
-  resolveXZ(a.pos,a.rad||.35,a.pos.y,1.8);a.pos.y+=(surfaceAt(a.pos.x,a.pos.z)-a.pos.y)*Math.min(1,dt*10);a.moving=true;return false;
+  if(!a.ghost){resolveXZ(a.pos,a.rad||.35,a.pos.y,1.8);a.pos.y+=(surfaceAt(a.pos.x,a.pos.z)-a.pos.y)*Math.min(1,dt*10);}else a.pos.y+=(0-a.pos.y)*Math.min(1,dt*6);a.moving=true;return false;
 }
 function animHuman(h,a,dt){a.t=(a.t||0)+dt;const sw=a.moving?Math.sin(a.t*9)*.7:0;h.legL.rotation.x=sw;h.legR.rotation.x=-sw;
   h.g.position.copy(a.pos);if(a.faceA!=null){let da=a.faceA-h.g.rotation.y;da=Math.atan2(Math.sin(da),Math.cos(da));h.g.rotation.y+=da*Math.min(1,dt*10);}
