@@ -71,6 +71,25 @@ Missions also have level modifiers: a fully dark mine, white-out fog, low gravit
   - The Hollow God's gaze hits you if you're in its line of sight. The final fight ends with the Lantern igniting.
 - **Slow motion on death:** each boss gets last words, and Warlords drop their heart.
 
+## Dead Signal (horror campaign)
+
+A separate five-chapter horror story, found in the **MODES** tab. A distress signal is coming out of Helix Site 9, the lab where the Warden's heart was taken two years ago. The voice on the radio belongs to a scientist who has been dead the whole time.
+
+- **Atmosphere:**
+  - Total darkness: you only have a flashlight.
+  - Close fog and a desaturated, grainy picture.
+  - No music: just a low drone, your heartbeat, whispers, banging, screams and lights that flicker out.
+- **The Pale Mother:** an unkillable thing that only moves when you are not looking at it. The heartbeat speeds up as she gets closer.
+- **Hard:**
+  - Demons have more health and hit harder.
+  - Half the pickups.
+  - No squad.
+  - More mid-room twists.
+- **Rewards:**
+  - Double coins while playing.
+  - On each chapter's first clear: big coins, XP, a skill point and a legendary relic.
+  - Surviving all five unlocks the **LAZARUS REVOLVER** and the Mother's Heart relic.
+
 ## Modes outside the story
 
 - **Survival:** endless waves, the original mode.
@@ -117,6 +136,7 @@ js/systems/
   bosses.js           intros, break meter and glory strike, signature attacks
   codex.js            codex and intel datapads
   modes.js            Horde, Boss Rush, Daily, Descent
+js/modes/horror.js    Dead Signal: chapters, the stalker, atmosphere, rewards
 js/ui/menu.js         story flow (prologue → briefing → debrief → ending), tabs
 tools/bundle.py       builds dist/hellbreach.html, a single-file copy
 ```

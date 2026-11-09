@@ -127,3 +127,9 @@ button.big{font-size:16px;padding:14px 20px}
 .boons{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;width:min(760px,100%)}
 .boon{display:grid;gap:6px;padding:16px;text-align:left;font-family:var(--body)}
 .boon b{font-family:var(--display);font-weight:400;font-size:16px;color:var(--gold)}.boon small{font-size:14px;color:var(--ink);line-height:1.4}.boon em{font-style:normal;font-size:11px;color:var(--teal);font-family:var(--display)}
+
+/* ---------- DEAD SIGNAL ---------- */
+#horrorFx{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,transparent 30%,#000 95%);opacity:0;transition:opacity .6s}
+.mode.horror{border-color:#1a4a3a;background:linear-gradient(135deg,#0a1210,#140808);box-shadow:0 5px 0 #000,0 0 30px #0a3a2a66}
+.mode.horror h3{color:#aaffd8;letter-spacing:.2em}.mode.horror h3 em{font-style:normal;font-size:11px;color:#ff5a4a;letter-spacing:.15em;margin-left:10px}
+.mode.horror .rush button{border-color:#1a4a3a}

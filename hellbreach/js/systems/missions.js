@@ -10,7 +10,7 @@ G.mode='story';
 LEVELS.forEach((L,i)=>{const M=STORY.missions[i];if(M){L.mission=M;L.rooms=M.rooms||L.rooms;}});
 function curMission(){return(!G.survival&&!G.trial&&G.L&&G.L.mission)||null;}
 Object.assign(ENC,{rescue:'RESCUE',escort:'ESCORT',activate:'SABOTAGE',defend:'DEFEND',holdout:'HOLD OUT',capture:'CAPTURE',carry:'RETRIEVE',assassinate:'ASSASSINATE',purify:'PURGE THE ROT',darkness:'BLACKOUT',gauntlet:'GAUNTLET'});
-const HARD={rate:()=>G.mode==='story'||G.mode==='descent'?Math.max(.62,.86-epN()*.05):1,cap:()=>G.mode==='story'||G.mode==='descent'?2+epN():0};
+const HARD={rate:()=>G.mode==='horror'?.6:G.mode==='story'||G.mode==='descent'?Math.max(.62,.86-epN()*.05):1,cap:()=>G.mode==='horror'?3+epN():G.mode==='story'||G.mode==='descent'?2+epN():0};
 const liveCount=()=>enemies.filter(e=>!e.T.static).length;
 const epN=()=>(G.L&&G.L.ep)||0;
 function pickType(strong){const pool=G.L.pool;if(strong){const s=['juggernaut','brute','shielder','revenant','gnasher','stalker','fiend','marksman','leaper'].filter(t=>pool.includes(t));if(s.length)return s[Math.floor(Math.random()*Math.min(3,s.length))];}return pool[Math.floor(Math.random()*pool.length)];}
@@ -433,9 +433,9 @@ const TWISTS={
 };
 const _setupTw=setupRooms;
 setupRooms=function(L){_setupTw(L);const M=curMission();if(!M||grid.single)return;
-  const li=G.mode==='story'?G.levelIdx:(G.descent?G.descent.floor:0);if(G.mode==='story'&&li<2)return;if(G.mode==='descent'&&li<3)return;
+  const li=G.mode==='horror'?12:G.mode==='story'?G.levelIdx:(G.descent?G.descent.floor:0);if(G.mode==='story'&&li<2)return;if(G.mode==='descent'&&li<3)return;
   const mains=grid.rooms.filter(r=>r.type==='main').sort((a,b)=>a.order-b.order);if(mains.length<2)return;
-  const keys=Object.keys(TWISTS);const n=G.mode==='story'&&li>=9?2:1;const used=new Set();
+  const keys=Object.keys(TWISTS);const n=(G.mode==='story'||G.mode==='horror')&&li>=9?2:1;const used=new Set();
   for(let q=0;q<n;q++){let r;do{r=mains[1+Math.floor(Math.random()*(mains.length-1))];}while(used.has(r)&&used.size<mains.length-1);used.add(r);
     r.twist=keys[(li*7+q*3+Math.floor(Math.random()*2))%keys.length];if(r.enc==='gauntlet'&&r.twist==='champion')r.twist='swarm';}};
 const _encTw=encTick;
