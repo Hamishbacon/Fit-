@@ -193,7 +193,7 @@ buildWorld=function(L,seedNum,opts){
   for(let i=0;i<N;i++)for(let j=0;j<N;j++){const k=idx(i,j),tt=t[k],x=cx(i),z=cx(j);
     if(tt===T_WALL&&h[k]>0){if(st.arch==='facility'||st.arch==='hall')addBox(x,z,C,h[k],C,look.wall[0],look.wall[1]);else{solidBox(x,z,C,h[k],C);vis(new THREE.Mesh(ROCKS[k%4],GFX.mat(look.wall[0],look.wall[1])),x,h[k]/2,z).scale.set(C*.75,h[k]*.6,C*.75);}}
     else if(tt===T_PILLAR){const ph=st.ceil?WH:h[k];solidBox(x,z,C*.8,ph,C*.8);vis(pillF(ph,look),x,0,z,rnd()*0);}
-    else if(tt===T_COVER){solidBox(x,z,C*.92,1.1,C*.92);vis(coverF(x,z,look),x,0,z,Math.floor(rnd()*4)*Math.PI/2);}
+    else if(tt===T_COVER){solidBox(x,z,C*.92,1.1,C*.92).userData.cell=k;vis(coverF(x,z,look),x,0,z,Math.floor(rnd()*4)*Math.PI/2).userData.cell=k;}
     else if(tt===T_PLAT)addBox(x,z,C,h[k],C,look.floor[0],h[k]>3?(look.wall[1]==='metal'?'metal':look.wall[1]):(st.arch==='facility'?'grate':look.floor[1]));
     else if(tt===T_STAIR){const d=grid.sd[k],lo=grid.lo[k],hi=h[k];for(let s=0;s<5;s++){const top=lo+(hi-lo)*(s+1)/5;const off=(-C/2+C/10+s*C/5);const px=d[0]?x+d[0]*off:x,pz=d[1]?z+d[1]*off:z;addBox(px,pz,d[0]?C/5:C,top,d[1]?C/5:C,look.floor[0],st.arch==='facility'?'grate':look.floor[1]);}}
     else if(tt===T_LAVA){const m=new THREE.Mesh(boxGeo,lavaMat);m.scale.set(C,.06,C);m.position.set(x,.02,z);world.add(m);}
