@@ -43,22 +43,53 @@
     });
   }
 
-  /** Build a humanoid rig: returns { group, parts } */
+  /** Build a jointed humanoid rig. Returns { group, parts, h }.
+   *  parts: torso, head, armL/armR (shoulder pivots), elbowL/R, legL/legR (hip pivots), kneeL/R, rag? */
   function humanoid(material, opts) {
     const g = new THREE.Group();
-    const h = opts.height || 1.75, thin = opts.thin || 1;
-    const cap = (r, len) => { const geo = new THREE.CylinderGeometry(r, r * 0.85, len, 10, 1); return new THREE.Mesh(geo, material); };
-    const torso = cap(0.19 * thin, h * 0.32); torso.position.y = h * 0.62;
-    const hips = cap(0.16 * thin, h * 0.1); hips.position.y = h * 0.44;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.115 * (opts.headScale || 1), 12, 10), material); head.position.y = h * 0.86; head.scale.y = 1.2;
-    const neck = cap(0.05, 0.1); neck.position.y = h * 0.79;
-    g.add(torso, hips, head, neck);
-    const limb = (x, y, len, r) => { const pivot = new THREE.Group(); pivot.position.set(x, y, 0); const m = cap(r, len); m.position.y = -len / 2; pivot.add(m); g.add(pivot); return pivot; };
-    const armL = limb(-0.25 * thin, h * 0.76, h * 0.42 * (opts.armLen || 1), 0.05);
-    const armR = limb(0.25 * thin, h * 0.76, h * 0.42 * (opts.armLen || 1), 0.05);
-    const legL = limb(-0.1, h * 0.42, h * 0.43, 0.075);
-    const legR = limb(0.1, h * 0.42, h * 0.43, 0.075);
-    return { group: g, parts: { torso, head, armL, armR, legL, legR }, h };
+    const h = opts.height || 1.75, thin = opts.thin || 1, k = h / 1.75;
+    // torso: lathe profile from hips to shoulders, flattened front-to-back
+    const prof = [[0.0, 0.0], [0.15, 0.02], [0.17, 0.1], [0.15, 0.2], [0.135, 0.28], [0.16, 0.4], [0.19, 0.5], [0.2, 0.55], [0.14, 0.6], [0.05, 0.62]]
+      .map(([r, y]) => new THREE.Vector2(r * thin * k, y * k));
+    const torso = new THREE.Mesh(new THREE.LatheGeometry(prof, 14), material);
+    torso.scale.z = 0.62; torso.position.y = h * 0.5;
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045 * k, 0.055 * k, 0.1 * k, 8), material); neck.position.y = h * 0.5 + 0.64 * k;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.1 * k * (opts.headScale || 1), 16, 12), material);
+    head.scale.set(0.88, 1.18, 1); head.position.y = h * 0.5 + 0.77 * k;
+    g.add(torso, neck, head);
+    const seg = (r0, r1, len) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, len, 9), material); m.position.y = -len / 2; return m; };
+    const joint = (r) => new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), material);
+    const arm = (side) => {
+      const sh = new THREE.Group(); sh.position.set(side * 0.21 * thin * k, h * 0.5 + 0.52 * k, 0);
+      const al = (opts.armLen || 1) * k;
+      sh.add(joint(0.055 * k), seg(0.05 * k, 0.04 * k, 0.29 * al));
+      const el = new THREE.Group(); el.position.y = -0.29 * al; sh.add(el);
+      el.add(seg(0.04 * k, 0.03 * k, 0.26 * al));
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.045 * k, 8, 6), material); hand.scale.set(0.6, 1.4, 0.9); hand.position.y = -0.3 * al; el.add(hand);
+      for (let i = 0; i < 3; i++) { const f = seg(0.008 * k, 0.005 * k, 0.07 * al * (opts.armLen || 1)); f.position.set((i - 1) * 0.015 * k, -0.34 * al, 0.01); el.add(f); }
+      g.add(sh); return [sh, el];
+    };
+    const leg = (side) => {
+      const hp = new THREE.Group(); hp.position.set(side * 0.09 * k, h * 0.5 + 0.02 * k, 0);
+      hp.add(seg(0.075 * k, 0.055 * k, 0.43 * k));
+      const kn = new THREE.Group(); kn.position.y = -0.43 * k; hp.add(kn);
+      kn.add(joint(0.05 * k), seg(0.05 * k, 0.035 * k, 0.42 * k));
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.08 * k, 0.05 * k, 0.2 * k), material); foot.position.set(0, -0.44 * k, 0.05 * k); kn.add(foot);
+      g.add(hp); return [hp, kn];
+    };
+    const [armL, elbowL] = arm(-1), [armR, elbowR] = arm(1), [legL, kneeL] = leg(-1), [legR, kneeR] = leg(1);
+    let rag = null;
+    if (opts.rag) {
+      // tattered shroud hanging from the shoulders, jagged hem
+      const geo = new THREE.CylinderGeometry(0.2 * k, 0.34 * k, h * 0.62, 18, 4, true);
+      const pos = geo.attributes.position, R = NW.util.rng(7);
+      for (let i = 0; i < pos.count; i++) { if (pos.getY(i) < -h * 0.3) pos.setY(i, pos.getY(i) + R() * 0.25 * k); pos.setX(i, pos.getX(i) * (0.95 + R() * 0.1)); }
+      geo.computeVertexNormals();
+      const rm = material.clone(); rm.side = THREE.DoubleSide; if (rm.uniforms) rm.uniforms = material.uniforms;
+      rag = new THREE.Mesh(geo, rm); rag.scale.z = 0.7; rag.position.y = h * 0.5 + 0.55 * k - h * 0.31;
+      g.add(rag);
+    }
+    return { group: g, parts: { torso, head, armL, armR, elbowL, elbowR, legL, legR, kneeL, kneeR, rag }, h };
   }
 
   class EntityView {
@@ -87,11 +118,11 @@
         this.rig.group.rotation.x = 1.2; this.rig.group.position.set(0, 0.35, -0.6);
         this.root.add(this.rig.group);
       } else if (f === 'tall') {
-        this.rig = humanoid(this.mat, { height: look.height || 2.2, thin: 0.75, armLen: 1.3, headScale: 0.85 }); this.root.add(this.rig.group);
+        this.rig = humanoid(this.mat, { height: look.height || 2.2, thin: 0.75, armLen: 1.35, headScale: 0.85, rag: true }); this.root.add(this.rig.group);
       } else if (f === 'drowned') {
-        this.rig = humanoid(this.mat, { height: look.height || 1.6 }); this.rig.parts.head.rotation.x = 0.5; this.rig.group.rotation.x = 0.15; this.root.add(this.rig.group);
+        this.rig = humanoid(this.mat, { height: look.height || 1.6, rag: true }); this.rig.parts.head.rotation.x = 0.5; this.rig.group.rotation.x = 0.15; this.root.add(this.rig.group);
       } else {
-        this.rig = humanoid(this.mat, { height: look.height || 1.75 }); this.root.add(this.rig.group);
+        this.rig = humanoid(this.mat, { height: look.height || 1.75, rag: f === 'figure' || f === 'shadow' }); this.root.add(this.rig.group);
       }
       // eyes (faint) for figure-like forms
       if (this.rig && f !== 'orb' && f !== 'mist') {
@@ -126,6 +157,9 @@
         const p = this.rig.parts;
         p.legL.rotation.x = sw; p.legR.rotation.x = -sw;
         p.armL.rotation.x = -sw * 0.6 + (hunting ? -0.6 : 0); p.armR.rotation.x = sw * 0.6 + (hunting ? -0.6 : 0);
+        p.kneeL.rotation.x = Math.max(0, -Math.sin(this.walkT)) * Math.min(1, moved) * 0.9; p.kneeR.rotation.x = Math.max(0, Math.sin(this.walkT)) * Math.min(1, moved) * 0.9;
+        p.elbowL.rotation.x = -0.25 - (hunting ? 0.5 : 0); p.elbowR.rotation.x = -0.25 - (hunting ? 0.5 : 0);
+        if (p.rag) { p.rag.rotation.x = -Math.min(1, moved) * 0.18 + Math.sin(t * 1.7) * 0.03; p.rag.rotation.z = Math.sin(t * 1.3) * 0.04; }
         p.head.rotation.z = Math.sin(t * 13) * 0.03 + (hunting ? Math.sin(t * 2.1) * 0.15 : 0);
         this.rig.group.position.y = (this.look.form === 'crawler' ? 0.35 : 0) + Math.abs(Math.sin(this.walkT)) * 0.03;
       }
@@ -152,6 +186,17 @@
       this.torch = new THREE.SpotLight(new THREE.Color(p.torchColor || '#ffe6bf'), 0, 16, 0.42, 0.5, 2);
       this.torch.position.set(0, 1.62, 0.2); this.torchTarget = new THREE.Object3D(); this.torchTarget.position.set(0, 1.4, 3);
       this.root.add(this.torch, this.torchTarget); this.torch.target = this.torchTarget;
+      // shoulder patch (cosmetic)
+      if (p.badge && p.badge !== 'none') {
+        const bc = NW.Tex.canvas(64), bx = bc.getContext('2d');
+        bx.fillStyle = '#1c1f22'; bx.fillRect(0, 0, 64, 64); bx.strokeStyle = '#e0782f'; bx.lineWidth = 4; bx.strokeRect(3, 3, 58, 58);
+        bx.strokeStyle = bx.fillStyle = '#ddd6c4'; bx.lineWidth = 3;
+        if (p.badge === 'eye') { bx.beginPath(); bx.ellipse(32, 32, 20, 10, 0, 0, 7); bx.stroke(); bx.beginPath(); bx.arc(32, 32, 5, 0, 7); bx.fill(); }
+        else if (p.badge === 'moon') { bx.beginPath(); bx.arc(32, 32, 16, 0, 7); bx.fill(); bx.fillStyle = '#1c1f22'; bx.beginPath(); bx.arc(40, 27, 14, 0, 7); bx.fill(); }
+        else { bx.beginPath(); bx.arc(24, 32, 9, 0, 7); bx.stroke(); bx.fillRect(32, 30, 20, 4); bx.fillRect(46, 30, 4, 10); }
+        const patch = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.09), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(bc), roughness: 0.9 }));
+        patch.position.set(-0.2, 1.3, 0.05); patch.rotation.y = -Math.PI / 2; this.rig.group.add(patch);
+      }
       // held item block
       this.held = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.16), dark); this.held.position.set(0.25, 0.9, 0.25); this.root.add(this.held);
       // name tag
@@ -174,7 +219,8 @@
       this.rig.group.rotation.x = 0; this.rig.group.position.y = p.crouch ? -0.35 : 0;
       this.walkT += dt * (p.speed || 0) * 3.5;
       const sw = Math.sin(this.walkT) * Math.min(1, (p.speed || 0)) * 0.6;
-      parts.legL.rotation.x = sw; parts.legR.rotation.x = -sw; parts.armL.rotation.x = -sw * 0.7; parts.armR.rotation.x = -0.8;
+      parts.legL.rotation.x = sw; parts.legR.rotation.x = -sw; parts.armL.rotation.x = -sw * 0.7; parts.armR.rotation.x = -0.8; parts.elbowR.rotation.x = -0.9;
+      parts.kneeL.rotation.x = Math.max(0, -sw) * 1.2; parts.kneeR.rotation.x = Math.max(0, sw) * 1.2;
       parts.head.rotation.x = -(p.pitch || 0) * 0.7;
       this.torch.intensity = p.torch ? 1.6 : 0; this.lampMesh.material.emissiveIntensity = p.torch ? 1.5 : 0;
       this.torchTarget.position.set(0, 1.4 - Math.sin(p.pitch || 0) * 3, Math.cos(p.pitch || 0) * 3);

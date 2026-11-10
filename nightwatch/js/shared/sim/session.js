@@ -372,6 +372,7 @@
     }
     _syncEntity() {
       const e = this.entity;
+      e.y = this.world.heightAt(e.pos.f, e.pos.x, e.pos.z);
       this.state.entity = {
         f: e.pos.f, x: e.pos.x, y: e.y, z: e.pos.z, yaw: e.yaw, visible: e.visible, mode: e.mode,
         look: e.def.look, silent: e.has('silentHunt'), muffle: e.has('muffle'), haze: e.has('deteriorate'),
@@ -504,6 +505,14 @@
           this.event({ t: 'radio', pid, name: p.name, text: String(a.text || '').slice(0, 140), jam });
           return;
         }
+        case 'ptt': { // push-to-talk on the personal radio (voice chat)
+          const has = p.inv.some((iid) => iid && I[iid] && I[iid].type === 'radio');
+          const on = !!a.on && has && p.alive;
+          if (on) { p.speakT = st.t; this.lastSpeechT = st.t; if (this.entity.has('voiceReactive')) EntityAIonSpeech(this, p); }
+          p.onAir = on;
+          this.event({ t: 'ptt', pid, on });
+          return;
+        }
         case 'swab': {
           const it = own(a.item); if (!it || it.type !== 'samplekit' || it.charges <= 0) return;
           const tr = st.traces.touch.find((x) => x.id === a.trace);
@@ -618,20 +627,28 @@
       if (this.entity.mode === 'hunt') { this.entity.mode = 'roam'; st.hunting = false; }
       const correct = st.journal.guess === this.entity.def.id;
       const everyone = Object.values(this.players);
-      const survivors = everyone.filter((p) => p.alive);
-      if (survivors.length === everyone.length && reason === 'left') this.objectives.mark('all_escape');
+      // anyone still inside the building when the van leaves is left behind
+      const W = this.world;
+      const escaped = (p) => p.alive && reason === 'left' && !p.inside;
+      const leftBehind = everyone.filter((p) => p.alive && reason === 'left' && p.inside);
+      if (reason === 'left' && everyone.every(escaped)) this.objectives.mark('all_escape');
       const objDone = st.objectives.filter((o) => o.done);
       const mult = this.diff.reward;
       const perPlayer = {};
       for (const p of everyone) {
-        const alive = p.alive && reason === 'left';
+        const alive = escaped(p);
         let credits = Math.round((40 + (correct ? 120 : 0) + objDone.reduce((a, o) => a + o.reward, 0)) * mult);
         let xp = Math.round((60 + (correct ? 160 : 0) + objDone.length * 30 + Math.min(240, st.t / 4)) * mult);
         if (!alive) { credits = Math.round(credits * 0.25); xp = Math.round(xp * 0.5); }
-        // items carried by an incapacitated investigator are lost
-        const lost = alive ? [] : everyone.length ? Object.values(st.items).filter((it) => it.type !== 'radio' && it.data.lastHolder === p.id) .map((it) => it.type) : [];
-        perPlayer[p.id] = { name: p.name, alive, credits, xp, lostTypes: lost };
+        // items dropped by an incapacitated investigator, or carried by one left behind, are lost
+        let lost = [];
+        if (!alive) {
+          lost = Object.values(st.items).filter((it) => it.type !== 'radio' && it.data.lastHolder === p.id).map((it) => it.type);
+          if (leftBehind.indexOf(p) >= 0) for (const iid of p.inv) { const it = iid && st.items[iid]; if (it && it.type !== 'radio') lost.push(it.type); }
+        }
+        perPlayer[p.id] = { name: p.name, alive, leftBehind: leftBehind.indexOf(p) >= 0, credits, xp, lostTypes: lost };
       }
+      void W;
       // equipment left inside the building is recovered on success, partly lost on failure
       const lostItems = [];
       if (reason === 'all_down') for (const it of Object.values(st.items)) if (!it.inTruck && it.type !== 'radio') lostItems.push(it.type);

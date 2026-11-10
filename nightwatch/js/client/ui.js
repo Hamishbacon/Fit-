@@ -30,6 +30,7 @@
       else if (e.code === 'KeyR' && !this.blocking()) g.player.altInteract();
       else if (e.code === 'Escape') { if (!$('tablet').hidden) this.toggleTablet(false); else if (!$('modal').hidden) this.closeModal(); }
       else if (e.code === 'KeyP' && !this.blocking()) this.pauseMenu();
+      else if (e.code === 'KeyH' && !this.blocking() && g.tutorial) g.tutorial.toggle();
     },
     blocking() { return !$('tablet').hidden || !$('modal').hidden || !$('radioInput').hidden; },
 
@@ -281,13 +282,17 @@
           <div class="slider"><span>Graphics quality</span><select data-sq><option ${s.quality === 'low' ? 'selected' : ''}>low</option><option ${s.quality === 'medium' ? 'selected' : ''}>medium</option><option ${s.quality === 'high' ? 'selected' : ''}>high</option></select><b></b></div>
           <label style="display:block;margin:8px 0;font-size:12px"><input type="checkbox" data-sb="invert" ${s.invert ? 'checked' : ''}> Invert mouse Y</label>
           <label style="display:block;margin:8px 0;font-size:12px"><input type="checkbox" data-sb="tts" ${s.tts ? 'checked' : ''}> Speak spectral voices with the browser speech engine</label>
+          <label style="display:block;margin:8px 0;font-size:12px"><input type="checkbox" data-sb="voice" ${s.voice ? 'checked' : ''}> Co-op voice chat (microphone): proximity voice, hold <b>B</b> for radio</label>
+          <div class="slider"><span>Voice ICE servers</span><input type="text" data-st="ice" value="${esc(s.ice || '')}" placeholder="optional, e.g. stun:stun.example.org:3478"><b></b></div>
           <label style="display:block;margin:8px 0;font-size:12px"><input type="checkbox" data-sb="mic" ${s.mic ? 'checked' : ''}> Use microphone: speaking loudly counts as calling out (entities may hear you)</label>
+          <label style="display:block;margin:8px 0;font-size:12px"><input type="checkbox" data-sb="briefing" ${s.briefing !== false ? 'checked' : ''}> Field briefing (guided steps) on Training</label>
           <label style="display:block;margin:8px 0;font-size:12px"><input type="checkbox" data-sb="showFps" ${s.showFps ? 'checked' : ''}> Show frame rate</label>
           <label style="display:block;margin:8px 0;font-size:12px"><input type="checkbox" data-sb="unlockAll" ${s.unlockAll ? 'checked' : ''}> Sandbox: unlock all locations, difficulties and equipment ranks</label>
         </div>`);
       this.bind('[data-back]', back);
       document.querySelectorAll('[data-s]').forEach((el) => el.addEventListener('input', () => { s[el.dataset.s] = +el.value; el.nextElementSibling.textContent = el.value; NW.Save.persist(); if (el.dataset.s === 'vol') NW.Audio.setVolume(+el.value); }));
       document.querySelectorAll('[data-sb]').forEach((el) => el.addEventListener('change', () => { s[el.dataset.sb] = el.checked; NW.Save.persist(); if (el.dataset.sb === 'mic' && el.checked) this.g.enableMic(); }));
+      document.querySelectorAll('[data-st]').forEach((el) => el.addEventListener('change', () => { s[el.dataset.st] = el.value.trim(); NW.Save.persist(); }));
       document.querySelector('[data-sq]').addEventListener('change', (e) => { s.quality = e.target.value; NW.Save.persist(); this.toast('Quality applies on the next deployment.'); });
     },
 
@@ -322,6 +327,7 @@
       if ($('team')._h !== teamHTML) { $('team')._h = teamHTML; $('team').innerHTML = teamHTML; }
       $('chipPower').textContent = st.power ? 'POWER ON' : 'POWER OFF';
       $('chipPower').className = 'chip' + (st.power ? '' : ' warn');
+      const fc = $('chipFps'); fc.hidden = !NW.Save.data.settings.showFps; if (!fc.hidden) fc.textContent = Math.round(g.fps) + ' FPS';
       $('chipTime').textContent = fmtT(st.t) + (st.t < st.diff.setup ? ' · setup' : '');
       // slots
       const sl = me.inv.map((iid, i) => {
@@ -337,6 +343,7 @@
       $('heldHint').textContent = it ? NW.EQUIPMENT_BY_ID[it.type].name + ' — ' + (hints[it.type] || '') + ' · G drop' : 'F torch · E interact · TAB tablet';
       $('stamina').firstElementChild.style.width = (g.player.stamina * 100) + '%';
       $('stamina').style.opacity = g.player.stamina < 0.99 ? 1 : 0;
+      $('onAir').hidden = !(g.voice && g.voice.ptt);
       $('huntEdge').className = st.hunting && g.entityNear(g.camera.position, me.f, 14) ? 'on' : '';
       $('hideSlats').hidden = me.hidden == null;
       if (me.alive) $('spectate').hidden = true;
@@ -418,6 +425,7 @@
     closeModal() { $('modal').hidden = true; if (this.g.inGame) this.g.input.lock(); if (this.g.net && this.g.net.kind === 'local') this.g.net.paused = false; },
     openLocker() {
       const g = this.g, st = g.state, me = g.me();
+      if (g.tutorial) g.tutorial.note('lockerOpened');
       const counts = {};
       for (const it of Object.values(st.items)) if (it.inTruck) counts[it.type] = (counts[it.type] || 0) + 1;
       const free = me.inv.filter((x) => x == null).length;
@@ -467,7 +475,7 @@
           <p style="color:var(--bone2)">${esc(ent.behaviour)}</p>
           <p>${r.reason === 'all_down' ? '<b class="bad">Every investigator was incapacitated. The mission failed.</b>' : r.reason === 'abandon' ? '<b class="bad">Investigation abandoned.</b>' : 'The team left the site after ' + fmtT(r.time) + '.'}</p></div>
         <div class="panel"><h3>Objectives</h3>${r.objectives.map((o) => `<div>${o.done ? '☑' : '☐'} ${esc(o.name)} <span style="color:var(--dim)">+${o.reward}</span></div>`).join('')}</div>
-        <div class="panel"><h3>Team</h3>${Object.values(r.perPlayer).map((p) => `<div>${esc(p.name)} — ${p.alive ? '<span class="ok">returned</span>' : '<span class="bad">incapacitated</span>'} · +${p.credits} cr · +${p.xp} XP</div>`).join('')}</div>
+        <div class="panel"><h3>Team</h3>${Object.values(r.perPlayer).map((p) => `<div>${esc(p.name)} — ${p.alive ? '<span class="ok">returned</span>' : p.leftBehind ? '<span class="bad">left behind</span>' : '<span class="bad">incapacitated</span>'} · +${p.credits} cr · +${p.xp} XP</div>`).join('')}</div>
         <div class="panel"><h3>Your rewards</h3><p>+${sum.credits} research credits · +${sum.xp} XP${sum.rankUp ? ` · <b class="ok">Promoted to rank ${sum.rank} (${NW.Save.rankTitle(sum.rank)})</b>` : ''}</p>${lost ? `<p class="bad">Equipment lost: ${esc(lost)}</p>` : ''}</div>
         <div class="actions"><button class="btn pri" data-again>${this.g.net && this.g.net.kind === 'remote' ? 'Back to lobby' : 'New contract'}</button><button class="btn" data-hq>Field HQ</button><button class="btn" data-main>Main menu</button></div>`);
       this.bind('[data-again]', () => { if (this.g.net && this.g.net.kind === 'remote' && this.room) this.showLobby(this.room); else this.showContract(); });

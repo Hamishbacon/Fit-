@@ -14,11 +14,14 @@ Everything is original: the entities, evidence types, instruments, maps, interfa
 node server/server.js
 ```
 
-Everyone opens `http://<host-ip>:8787`. One person picks **Co-op → Host new lobby** and shares the 4-letter code. The others choose **Join**. The host picks the contract and deploys once everyone is ready. Players can drop in to a mission that is already running.
+Everyone opens `http://<host-ip>:8787`. To talk, tick **Co-op voice chat** in Settings: nearby teammates hear you through walls and floors, and holding **B** talks on the radio. Voice works on a local network out of the box. For play over the internet, add a STUN/TURN server under **Voice ICE servers**. One person picks **Co-op → Host new lobby** and shares the 4-letter code. The others choose **Join**. The host picks the contract and deploys once everyone is ready. Players can drop in to a mission that is already running.
 
 **Single file:** `python3 tools/bundle.py` writes `dist/nightwatch.html`, which plays solo from one file.
 
 ## How an investigation works
+
+On **Training**, a Field Briefing walks you through your first investigation step by step. Turn it off in Settings.
+
 
 1. Take equipment from the **Field Unit** (the van). Press **E** at its open rear doors. You have four slots, and a personal radio takes one.
 2. If the site is dark, find the generator and restore power. Lit rooms protect your **Field Composure**.
@@ -39,7 +42,8 @@ Everyone opens `http://<host-ip>:8787`. One person picks **Co-op → Host new lo
 | 1–4, mouse wheel, G | Select slot, drop |
 | F | Head torch |
 | Q / V | Ask a question (into the recorder if it is on) / call out |
-| T | Transmit on the radio |
+| T / hold B | Type a radio message / talk on the radio (voice chat) |
+| H | Hide or show the Field Briefing |
 | TAB / P / ESC | Tablet / pause / release mouse |
 
 ## Content
@@ -74,6 +78,8 @@ nightwatch/
     effects.js                composure effects, thermal shader, lens, UV, hallucinations
     audio.js                  AudioSystem: synthesised spatial sound
     ui.js                     UIManager: menus, HQ, lobby, HUD, tablet, results
+    tutorial.js               Field Briefing (guided Training run) + one-time hints
+    voice.js                  VoiceChat: WebRTC mesh, proximity + radio routing
     save.js                   SaveSystem + progression
     game.js, main.js          orchestration and main loop
   server/server.js            zero-dependency HTTP + WebSocket server running GameSession per lobby
@@ -94,7 +100,7 @@ Adding content:
 npm test
 ```
 
-This runs `tests/maps.test.js`, which rasterises every map and checks every room and hiding spot is reachable across floors. It then runs `tests/sim.test.js`, which runs all 15 entities on all 4 maps with bot investigators. Finally it runs `tests/evidence.test.js`, which checks that each entity produces only its own evidence and that all three can be found.
+This runs `tests/maps.test.js`, which rasterises every map and checks every room and hiding spot is reachable across floors. It then runs `tests/sim.test.js`, which runs all 15 entities on all 4 maps with bot investigators. Then it runs `tests/evidence.test.js`, which checks that each entity produces only its own evidence and that all three can be found. Finally `tests/server.test.js` starts the real server and drives two WebSocket clients through a lobby, a mission, the voice-signalling relay and the shared ending.
 
 ## Development phases
 
@@ -103,8 +109,8 @@ This runs `tests/maps.test.js`, which rasterises every map and checks every room
 | 1. Movement, test map, interaction, lighting, inventory | Done |
 | 2. Entity, AI, manifestations, pursuits | Done |
 | 3. Evidence system, instruments, entity database/journal | Done |
-| 4. Multiplayer, synchronisation, communication | Done: dedicated server, lobbies, drop-in, shared journal, text radio with interference, proximity speech |
+| 4. Multiplayer, synchronisation, communication | Done: dedicated server, lobbies, drop-in, shared journal, WebRTC proximity and radio voice, text radio with interference |
 | 5. More entities, locations, progression, difficulties | Done: 15 entities, 4 locations |
-| 6. Polish | Ongoing |
+| 6. Polish | Bloom and filmic grading, jointed figures with shrouds, Field Briefing, hints, FPS counter |
 
-Next steps: WebRTC voice chat routed through the existing proximity and radio rules, delta-compressed snapshots, host migration mid-mission, character animation rigs, and more sites.
+Because the server runs the simulation, a mission keeps going if the host disconnects; the next player becomes lobby host. Possible next steps: delta-compressed snapshots, a TURN relay bundled with the server, and more sites.

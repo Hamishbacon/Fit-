@@ -144,6 +144,12 @@ function handle(c, m) {
     case 'chat': if (c.room) broadcast(c.room, { type: 'chat', from: c.name, text: String(m.text || '').slice(0, 200) }); return;
     case 'start': if (c.room && c.room.hostId === c.id && !c.room.session) startMission(c.room); return;
     case 'act': if (c.room && c.room.session && m.a) c.room.session.applyAction(c.id, m.a); return;
+    case 'rtc': { // WebRTC voice signalling relay within a room
+      if (!c.room || !m.to) return;
+      const t = c.room.clients.get(m.to);
+      if (t) t.ws.send({ type: 'rtc', from: c.id, data: m.data });
+      return;
+    }
     case 'leave': leaveRoom(c); return;
   }
 }

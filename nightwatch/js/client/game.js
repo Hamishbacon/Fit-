@@ -27,7 +27,7 @@
       this.camera = new THREE.PerspectiveCamera(S.fov || 72, innerWidth / innerHeight, 0.04, 400);
       this.input = new NW.Input(canvas);
       this.input.onLock = () => {};
-      addEventListener('resize', () => { this.renderer.setSize(innerWidth, innerHeight); this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); });
+      addEventListener('resize', () => { this.renderer.setSize(innerWidth, innerHeight); this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); this._postSize(); });
       this.inGame = false; this.time = 0; this.speakingAt = {};
       this.last = performance.now();
       this.fps = 0;
@@ -36,7 +36,49 @@
       requestAnimationFrame((t) => this.frame(t));
     }
 
+    /* ---------- post-processing: bloom on light sources + filmic grade (medium/high) ---------- */
+    _setupPost(scene) {
+      this.post = null;
+      if (this.quality === 'low' || !THREE.EffectComposer || !THREE.UnrealBloomPass) { this.renderer.toneMapping = THREE.ACESFilmicToneMapping; return; }
+      try {
+        const r = this.renderer;
+        const hf = r.capabilities.isWebGL2 || r.extensions.has('OES_texture_half_float');
+        const rt = new THREE.WebGLRenderTarget(4, 4, { type: hf ? THREE.HalfFloatType : THREE.UnsignedByteType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+        const comp = new THREE.EffectComposer(r, rt);
+        const rp = new THREE.RenderPass(scene, this.camera); comp.addPass(rp);
+        const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.5, 0.82); comp.addPass(bloom);
+        const grade = new THREE.ShaderPass({
+          uniforms: { tDiffuse: { value: null }, exposure: { value: 1.15 }, raw: { value: 0 } },
+          vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+          fragmentShader: `uniform sampler2D tDiffuse; uniform float exposure; uniform float raw; varying vec2 vUv;
+            vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
+            void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb;
+              if (raw < 0.5) { c = aces(c * exposure); c = pow(c, vec3(1.0/2.2)); }
+              gl_FragColor = vec4(c, 1.0); }`
+        });
+        comp.addPass(grade);
+        r.toneMapping = THREE.NoToneMapping;
+        this.post = { comp, rp, bloom, grade };
+        this._postSize();
+      } catch (e) { console.warn('post-processing unavailable', e); this.post = null; this.renderer.toneMapping = THREE.ACESFilmicToneMapping; }
+    }
+    _postSize() {
+      const P = this.post; if (!P) return;
+      const pr = this.renderer.getPixelRatio();
+      P.comp.setPixelRatio(pr); P.comp.setSize(innerWidth, innerHeight);
+      P.bloom.resolution.set(innerWidth * pr / 2, innerHeight * pr / 2);
+    }
+    _render() {
+      const P = this.post;
+      if (!P) { this.renderer.render(this.scene, this.camera); return; }
+      const thermal = this.effects && this.effects.thermal;
+      P.grade.uniforms.raw.value = thermal ? 1 : 0;
+      P.bloom.enabled = !thermal;
+      P.comp.render();
+    }
+
     me() { return this.state && this.state.players[this.myId]; }
+    hasItem(type) { const me = this.me(); return !!me && me.inv.some((i) => i && this.state.items[i] && this.state.items[i].type === type); }
     uiBlocking() { return NW.UI.blocking(); }
     entityNear(pos, f, r) { const e = this.state && this.state.entity; return !!e && e.f === f && Math.hypot(e.x - pos.x, e.z - pos.z) < r; }
 
@@ -92,6 +134,7 @@
       this.hemi = new THREE.HemisphereLight(0x26324a, 0x0a0a0a, 0.18); scene.add(this.hemi);
       this.moon = new THREE.DirectionalLight(0x6f86b0, 0.18); this.moon.position.set(-60, 80, -40); scene.add(this.moon);
       this.level = new NW.LevelManager(scene, this.world, m.cfg.locationId, this.quality);
+      this._setupPost(scene);
       // head torch
       const me = this.state.players[this.myId];
       this.torch = new THREE.SpotLight(new THREE.Color(me.torchColor || '#ffe6bf'), 2.6, 24, 0.46, 0.55, 1.5);
@@ -103,6 +146,7 @@
       this.player.spawn(me);
       this.camera.position.set(me.x, me.y + 1.6, me.z);
       this.equip = new NW.EquipmentSystem(this);
+      this.tutorial = this.tutorial || new NW.Tutorial(this);
       this.effects = new NW.Effects(this);
       this.entityView = new NW.EntityView(scene, this.state.entity.look);
       this.avatars = {};
@@ -110,11 +154,14 @@
       this.level.syncDoors(this.state, null);
       this.inGame = true; this.time = 0;
       NW.UI.enterGame();
+      this.tutorial.start();
       NW.Audio.startAmbience(m.cfg.locationId);
       if (this.state.power && this.world.generator) NW.Audio.setHum(true, this.level.genPos);
       NW.UI.toast('Investigation started: ' + this.world.loc.name, 'good');
       NW.UI.toast(this.state.power ? 'Collect equipment from the Field Unit (E at the van).' : 'Site power is off — find the generator. Collect equipment at the van (E).');
-      if (NW.Save.data.settings.mic) this.enableMic();
+      this.voice = new NW.VoiceChat(this);
+      if (this.net.kind === 'remote' && NW.Save.data.settings.voice) this.voice.start();
+      else if (NW.Save.data.settings.mic) this.enableMic();
     }
     leaveGame(keepNet) {
       if (this.scene) {
@@ -125,6 +172,9 @@
       }
       if (this.camera) { for (const c of this.camera.children.slice()) this.camera.remove(c); }
       this.inGame = false; this.state = null;
+      if (this.tutorial) this.tutorial.stop();
+      if (this.voice) { this.voice.stop(); this.voice = null; }
+      if (this.mic) { if (this.mic.stream) this.mic.stream.getTracks().forEach((t) => t.stop()); this.mic = null; }
       NW.UI.exitGame();
       this.input.unlock();
       if (!keepNet && this.net && this.net.kind === 'local') this.net = null;
@@ -153,6 +203,7 @@
       if (e.to && e.to !== this.myId) return;
       const posOf = (x, z, f, dy) => ({ x, y: this.world.heightAt(f, x, z) + (dy == null ? 1.2 : dy), z });
       this.equip.onEvent(e);
+      if (this.voice) this.voice.onEvent(e);
       switch (e.t) {
         case 'door': {
           const d = this.world.doors[e.id];
@@ -264,11 +315,13 @@
 
     enableMic() {
       if (this.mic || !navigator.mediaDevices) return;
-      navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-        NW.Audio.init(); const ctx = NW.Audio.ctx;
-        const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser(); an.fftSize = 512; src.connect(an);
-        this.mic = { an, buf: new Float32Array(512), loudT: 0, sentT: 0 };
-      }).catch(() => NW.UI.toast('Microphone unavailable.', 'bad'));
+      navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => this.attachMicStream(stream)).catch(() => NW.UI.toast('Microphone unavailable.', 'bad'));
+    }
+    /** Voice-activity detection: speaking aloud counts as calling out (entities may hear it). */
+    attachMicStream(stream) {
+      NW.Audio.init(); const ctx = NW.Audio.ctx;
+      const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser(); an.fftSize = 512; src.connect(an);
+      this.mic = { an, buf: new Float32Array(512), loudT: 0, sentT: 0, stream };
     }
     _micTick(dt) {
       const m = this.mic; if (!m || !this.inGame) return;
@@ -283,7 +336,9 @@
     /* ---------------- frame ---------------- */
     frame(now) {
       requestAnimationFrame((t) => this.frame(t));
-      const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
+      const rawDt = (now - this.last) / 1000; this.last = now;
+      const dt = Math.min(0.05, rawDt);
+      if (rawDt > 0) this.fps += (1 / rawDt - this.fps) * 0.05;
       if (!this.inGame) { this.input.endFrame(); return; }
       this.time += dt;
       this.net.update(dt);
@@ -292,6 +347,7 @@
       if (!me) { this.renderer.render(this.scene, this.camera); return; }
       this.player.update(dt);
       this._micTick(dt);
+      if (this.voice) { this.voice.setPTT(!!this.input.keys.KeyB && !this.uiBlocking()); this.voice.update(dt); }
       // world sync
       this.level.syncDoors(st, null);
       this.level.animateDoors(dt);
@@ -337,13 +393,14 @@
       }
       for (const id in this.avatars) if (!st.players[id]) { this.avatars[id].dispose(); delete this.avatars[id]; }
       this.equip.update(dt, this.time);
+      this.tutorial.update(dt);
       this.effects.update(dt, me, this.time);
       NW.Audio.listen(this.camera);
       NW.Audio.setStress(me.alive ? me.composure : 100, st.entity.muffle && near ? 1 : 0);
       NW.Audio.setAmbienceLevel(st.entity.muffle && this.entityNear(this.camera.position, me.f, 7) ? 0.1 : 1);
       NW.Audio.tickAmbience(dt, this.camera.position, this.world.loc.id);
       NW.UI.updateHUD();
-      this.renderer.render(this.scene, this.camera);
+      this._render();
       if (this._capture) {
         const meta = this._capture; this._capture = null;
         try {

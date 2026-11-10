@@ -5,7 +5,7 @@
   "description": "Cooperative first-person paranormal investigation game (three.js client + zero-dependency Node co-op server).",
   "scripts": {
     "start": "node server/server.js",
-    "test": "node tests/maps.test.js && node tests/sim.test.js && node tests/evidence.test.js"
+    "test": "node tests/maps.test.js && node tests/sim.test.js && node tests/evidence.test.js && node tests/server.test.js"
   },
   "license": "UNLICENSED"
 }

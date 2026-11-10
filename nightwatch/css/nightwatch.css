@@ -171,3 +171,9 @@ input[type=text], select { background: var(--ink2); border: 1px solid var(--line
 .keys { display: grid; grid-template-columns: 120px 1fr; gap: 3px 12px; font-size: 12px; }
 .keys kbd { background: var(--slate2); border: 1px solid var(--line); padding: 1px 6px; font-family: var(--mono); }
 @media (max-width: 760px) { .profile-card { position: static; margin-bottom: 16px; } .manual { grid-template-columns: 1fr; } .lobby-players { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---------- Field briefing ---------- */
+#briefing { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: min(560px, 60vw); background: rgba(10,13,17,.82); border: 1px solid var(--line); border-top: 3px solid var(--teal); padding: 8px 12px; font-size: 13px; line-height: 1.5; }
+#briefing .bf-h { font-size: 11px; letter-spacing: .14em; color: var(--teal); display: flex; gap: 10px; } #briefing .bf-h em { margin-left: auto; color: var(--dim); font-style: normal; letter-spacing: 0; }
+#briefing .bf-t b { color: var(--sig2); } #briefing .bf-s { color: var(--dim); font-size: 11px; margin-top: 3px; }
+#onAir { position: absolute; left: 16px; bottom: 56px; color: #ff6b5a; background: rgba(10,13,17,.8); padding: 3px 10px; border: 1px solid #ff6b5a; letter-spacing: .15em; font-size: 12px; }
