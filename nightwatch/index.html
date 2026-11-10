@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nightwatch Protocol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Archivo+Narrow:wght@500;700&display=swap">
+<link rel="stylesheet" href="css/nightwatch.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+
+<!-- in-world overlays -->
+<div id="fx">
+  <canvas id="grain" width="160" height="90"></canvas>
+  <div id="vignette"></div>
+  <div id="condensation"></div>
+  <div id="hideSlats" hidden></div>
+  <div id="lensView" hidden><div class="lv-frame"></div><div class="lv-corner tl"></div><div class="lv-corner tr"></div><div class="lv-corner bl"></div><div class="lv-corner br"></div><div class="lv-label">SPECTRAL LENS · LIVE</div></div>
+  <div id="thermView" hidden><div class="tv-ret"></div><div class="tv-label">THERMAL</div><div id="thermReadout">--.- °C</div></div>
+  <div id="flashFx"></div>
+  <div id="downFx"></div>
+</div>
+
+<!-- HUD -->
+<div id="hud" hidden>
+  <div id="crosshair"></div>
+  <div id="prompt"></div>
+  <div id="progress" hidden><span id="progressLbl"></span><div class="bar"><i id="progressFill"></i></div></div>
+  <div id="team"></div>
+  <div id="statusChips"><span id="chipPower" class="chip"></span><span id="chipTime" class="chip"></span><span id="chipFps" class="chip" hidden></span></div>
+  <div id="slots"></div>
+  <div id="heldHint"></div>
+  <div id="stamina"><i></i></div>
+  <div id="subtitle"></div>
+  <div id="radioFeed"></div>
+  <div id="toasts"></div>
+  <div id="spectate" hidden></div>
+  <div id="briefing" hidden></div>
+  <div id="onAir" hidden>● ON AIR</div>
+  <div id="huntEdge"></div>
+  <div id="radioInput" hidden><span>RADIO ▸</span><input id="radioText" maxlength="120" placeholder="Transmit to team… (Enter)"></div>
+</div>
+
+<!-- Investigation tablet -->
+<div id="tablet" hidden>
+  <div class="tab-bezel">
+    <div class="tab-head"><b>NWP FIELD TABLET</b><span id="tabClock"></span><span class="tab-close">TAB to close</span></div>
+    <nav class="tab-nav" id="tabNav"></nav>
+    <section class="tab-body" id="tabBody"></section>
+  </div>
+</div>
+
+<!-- Modal layer (locker, notes, pause, confirmations) -->
+<div id="modal" hidden><div class="modal-card" id="modalCard"></div></div>
+
+<!-- Menus -->
+<div id="menu">
+  <div class="menu-bg"></div>
+  <div class="menu-wrap" id="menuWrap"></div>
+</div>
+
+<div id="clickToPlay" hidden><div><b>Click to continue</b><span>Mouse look is paused.<br>ESC releases the mouse. TAB opens the field tablet.</span></div></div>
+<div id="loading" hidden><div class="ld-inner"><b id="ldTitle">DEPLOYING</b><span id="ldSub"></span><div class="bar"><i id="ldFill"></i></div></div></div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/post/CopyShader.js"></script>
+<script src="vendor/post/LuminosityHighPassShader.js"></script>
+<script src="vendor/post/EffectComposer.js"></script>
+<script src="vendor/post/RenderPass.js"></script>
+<script src="vendor/post/ShaderPass.js"></script>
+<script src="vendor/post/UnrealBloomPass.js"></script>
+<!-- shared simulation (also loaded by server/simLoader.js in the same order) -->
+<script src="js/shared/ns.js"></script>
+<script src="js/shared/data/evidence.js"></script>
+<script src="js/shared/data/equipment.js"></script>
+<script src="js/shared/data/entities.js"></script>
+<script src="js/shared/data/difficulty.js"></script>
+<script src="js/shared/data/locations.js"></script>
+<script src="js/shared/sim/world.js"></script>
+<script src="js/shared/sim/entityAI.js"></script>
+<script src="js/shared/sim/director.js"></script>
+<script src="js/shared/sim/session.js"></script>
+<script src="js/shared/net/protocol.js"></script>
+<!-- client -->
+<script src="js/client/save.js"></script>
+<script src="js/client/textures.js"></script>
+<script src="js/client/audio.js"></script>
+<script src="js/client/level.js"></script>
+<script src="js/client/decor.js"></script>
+<script src="js/client/atmosphere.js"></script>
+<script src="js/client/entityView.js"></script>
+<script src="js/client/equipment.js"></script>
+<script src="js/client/effects.js"></script>
+<script src="js/client/player.js"></script>
+<script src="js/client/net.js"></script>
+<script src="js/client/ui.js"></script>
+<script src="js/client/tutorial.js"></script>
+<script src="js/client/voice.js"></script>
+<script src="js/client/game.js"></script>
+<script src="js/client/main.js"></script>
+</body>
+</html>
