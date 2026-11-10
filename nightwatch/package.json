@@ -1,0 +1,11 @@
+{
+  "name": "nightwatch-protocol",
+  "version": "0.6.0",
+  "private": true,
+  "description": "Cooperative first-person paranormal investigation game (three.js client + zero-dependency Node co-op server).",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node tests/maps.test.js && node tests/sim.test.js && node tests/evidence.test.js"
+  },
+  "license": "UNLICENSED"
+}
