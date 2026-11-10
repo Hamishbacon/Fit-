@@ -70,6 +70,19 @@ A pursuit can start after the setup window, once the team's average composure (o
 | Saint Vesper Clinic | Archives, ground | Off (emergency generator) | Wards, burned theatre, cold store |
 | Redwater Ferry Terminal | Flooded lower level, terminal and ferry | On | Ferry deck, cabin, wheelhouse, flooded hold |
 
+## Relics and electronics
+
+- **Relic:** each site has one, placed on a pedestal in a random room (3 uses). Using it costs 12 composure and raises agitation. During the setup window it always answers: one evidence type the entity does *not* have is ruled out in the shared journal. After setup, it has a 30–50% chance to provoke a pursuit instead.
+- **Electronics:** TVs, monitors and radios are placed in suitable rooms. The entity switches them on to static (the Flicker much more often), which leaves EM and touch traces. Players can switch them off.
+
+## Rendering
+
+- **Walls:** built per tile face with exterior shells, caps, parapets and window reveals, so there are no single-sided gaps.
+- **Drawing:** static geometry is merged per material per floor, and only floors near the camera are drawn.
+- **Lights:** a fixed budget of 6 point lights (fixtures, emergency lights, beacon, flash, UV, screens, motes, street lamps) is reassigned each frame, plus your torch and the nearest teammate's torch.
+- **Textures:** 512 px with Sobel normal maps.
+- **Grading:** colour effects (composure desaturation, lens tint) are done in the post-processing grade pass rather than CSS filters.
+
 ## Network model
 
 - **Authority:** `GameSession`, in the browser for solo play or on the Node server for co-op.

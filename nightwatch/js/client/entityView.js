@@ -104,7 +104,7 @@
         orb.position.y = 1.5; this.root.add(orb);
         const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: NW.glowTex(), color: 0xffe08a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); halo.scale.set(2.2, 2.2, 1); orb.add(halo);
         this.rig = humanoid(this.mat, { height: look.height }); this.mat.uniforms.uOpacity.value = 0.25; this.root.add(this.rig.group);
-        this.light = new THREE.PointLight(0xffe2a0, 1.2, 7, 2); this.light.position.y = 1.5; this.root.add(this.light);
+        this.light = { intensity: 0 }; // via the shared light budget
       } else if (f === 'mist') {
         this.rig = humanoid(this.mat, { height: look.height, thin: 1.2 }); this.root.add(this.rig.group);
         this.puffs = [];
@@ -183,7 +183,7 @@
       lamp.rotation.x = Math.PI / 2; lamp.position.set(0, 0.08, 0.12); this.rig.parts.head.add(lamp); this.lampMesh = lamp;
       this.root = new THREE.Group(); this.root.add(this.rig.group);
       this.rig.group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-      this.torch = new THREE.SpotLight(new THREE.Color(p.torchColor || '#ffe6bf'), 0, 16, 0.42, 0.5, 2);
+      this.torch = new THREE.Object3D(); this.torch.intensity = 0; this.torchColor = p.torchColor || '#ffe6bf'; // the game lends one real spotlight to the nearest teammate
       this.torch.position.set(0, 1.62, 0.2); this.torchTarget = new THREE.Object3D(); this.torchTarget.position.set(0, 1.4, 3);
       this.root.add(this.torch, this.torchTarget); this.torch.target = this.torchTarget;
       // shoulder patch (cosmetic)

@@ -16,8 +16,7 @@
       this.canvas = game.renderer.domElement;
       this.thermal = false; this.lens = false;
       this.ghosts = [];
-      this.uv = new THREE.SpotLight(0x8a5cff, 0, 7, 0.5, 0.6, 2);
-      game.camera.add(this.uv); this.uv.position.set(0.15, -0.1, 0); this.uv.target.position.set(0.1, -0.2, -3); game.camera.add(this.uv.target);
+      this.uvOn = false;
       this.grainCtx = this.grain.getContext('2d');
       this.grainT = 0; this.shock = 0; this.heartT = 0;
     }
@@ -91,12 +90,14 @@
       m.uniforms.uEnt.value.set(e.x, e.y, e.z, e.f === me.f ? 1 : 0);
     }
     setLens(on) { if (on !== this.lens) { this.lens = on; this.lensEl.hidden = !on; this._applyFilter(); } }
-    setUV(on) { this.uv.intensity = on ? 2.4 : 0; }
-    _applyFilter() {
-      const f = [];
-      if (this.lens) f.push('sepia(0.35) saturate(0.6) contrast(1.15) brightness(1.15)');
-      this.canvas.style.filter = f.join(' ');
+    setUV(on) {
+      this.uvOn = on;
+      if (!on) return;
+      const c = this.g.camera, fw = new THREE.Vector3(0, -0.2, -1).applyQuaternion(c.quaternion);
+      this.g.level.budget.request({ x: c.position.x + fw.x * 1.2, y: c.position.y + fw.y * 1.2, z: c.position.z + fw.z * 1.2, color: 0x8a5cff, intensity: 1.6, distance: 5, priority: 6 });
     }
+    /** Colour effects now live in the renderer's grade pass (no CSS filters on the canvas). */
+    _applyFilter() { this.canvas.style.filter = ''; }
 
     update(dt, me, t) {
       if (!me) return;
@@ -128,10 +129,7 @@
         const fov = (NW.Save.data.settings.fov || 72) + Math.sin(t * 0.9) * 1.6 * low - this.shock * 4;
         if (Math.abs(this.g.camera.fov - fov) > 0.05) { this.g.camera.fov = fov; this.g.camera.updateProjectionMatrix(); }
       }
-      if (!this.lens && !this.thermal) {
-        const sat = 1 - low * 0.55;
-        this.canvas.style.filter = low > 0.05 ? 'saturate(' + sat.toFixed(2) + ') contrast(' + (1 + low * 0.12).toFixed(2) + ')' : '';
-      }
+      this.grade = { sat: this.lens ? 0.55 : 1 - low * 0.55, contrast: 1 + low * 0.12 + (this.lens ? 0.15 : 0), tint: this.lens ? 1 : 0, haze: 0 };
       // hallucinated figures
       for (let i = this.ghosts.length - 1; i >= 0; i--) {
         const gh = this.ghosts[i];
@@ -146,7 +144,7 @@
       const base = room && room.outdoor ? 0.022 : 0.05;
       const target = base + haze * 0.18 + (this.thermal ? -0.03 : 0);
       this.g.scene.fog.density += (Math.max(0.005, target) - this.g.scene.fog.density) * Math.min(1, dt * 1.5);
-      document.getElementById('condensation').style.opacity = (haze * 0.8).toFixed(2);
+      const ce = document.getElementById('condensation'); const co = haze * 0.8; ce.style.display = co > 0.02 ? 'block' : 'none'; ce.style.opacity = co.toFixed(2);
     }
 
     onShock(amount) { this.shock = Math.min(1, this.shock + amount / 12); }

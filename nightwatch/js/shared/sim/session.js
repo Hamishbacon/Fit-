@@ -64,7 +64,9 @@
         traces: { emf: [], touch: [], distort: [], prints: [], orbs: [] },
         journal: { ev: {}, guess: null, struck: {} },
         objectives: [], photos: [], log: [], notes: [],
-        entity: null, result: null, hiddenEvidence: []
+        entity: null, result: null, hiddenEvidence: [],
+        devices: W.devices.map(() => ({ on: false, until: 0 })),
+        relic: W.relic ? { uses: 3 } : null
       };
       // hidden evidence on harder difficulties
       if (this.diff.hiddenEvidence) this.state.hiddenEvidence = this.rng.shuffle(def.evidence.slice()).slice(0, this.diff.hiddenEvidence);
@@ -199,6 +201,13 @@
       this.state.roomLights[r] = on;
       this.event({ t: 'light', room: r, on, by });
     }
+    setDevice(id, on, by, dur) {
+      const d = this.state.devices[id]; if (!d || d.on === on) return;
+      d.on = on; d.until = on && dur ? this.state.t + dur : 0;
+      const dv = this.world.devices[id];
+      this.event({ t: 'device', id, on, by });
+      if (on && by === 'entity') this.log('A ' + (dv.kind === 'tv' ? 'television' : dv.kind) + ' switched itself on in ' + this.world.rooms[dv.room].name + '.');
+    }
     roomLit(r) { return r >= 0 && this.state.power && this.state.roomLights[r] && this.world.rooms[r].lit; }
     tripBreaker() {
       if (!this.state.power) return;
@@ -301,6 +310,7 @@
       this._tickItems(dt);
       this._expireTraces();
       this._syncEntity();
+      for (let i = 0; i < st.devices.length; i++) { const d = st.devices[i]; if (d.on && d.until && st.t > d.until) this.setDevice(i, false, 'timeout'); }
       if (this.beaconActive && st.t > this.beaconEnd) { this.beaconActive = false; this.beaconTarget = null; this.event({ t: 'beacon', on: false }); }
     }
 
@@ -503,6 +513,34 @@
           if (this.entity.has('voiceReactive')) EntityAIonSpeech(this, p);
           const jam = st.hunting ? 0.8 : this.entity.pos.f === p.f && U.dist(this.entity.pos.x, this.entity.pos.z, p.x, p.z) < 8 ? 0.4 : 0;
           this.event({ t: 'radio', pid, name: p.name, text: String(a.text || '').slice(0, 140), jam });
+          return;
+        }
+        case 'device': {
+          const dv = W.devices[a.id]; if (!dv || !near(dv.x, dv.z, dv.f, 2.4)) return;
+          this.setDevice(dv.id, !st.devices[dv.id].on, pid);
+          return;
+        }
+        case 'relic': {
+          const rl = W.relic; if (!rl || !st.relic || st.relic.uses <= 0 || !p.alive || !near(rl.x, rl.z, rl.f, 2.4) || st.hunting) return;
+          st.relic.uses--;
+          this.composureHit(p, 12, 'the relic');
+          this.entity.anger = Math.min(1, this.entity.anger + 0.15);
+          this.emitSound('manifest', rl.x, rl.z, rl.f, 0.9);
+          const canHunt = st.t >= this.diff.setup && this.entity.huntCooldown <= 0;
+          if (canHunt && this.rng.chance(0.3 + 0.1 * (3 - st.relic.uses))) {
+            this.event({ t: 'relic', pid, text: 'The relic burns cold in your hands. Something answers.' });
+            this.log(p.name + ' disturbed the relic — and something answered.');
+            this.entity.startHunt();
+            return;
+          }
+          const def = this.entity.def;
+          const ruled = NW.EVIDENCE.map((e) => e.id).filter((e) => def.evidence.indexOf(e) < 0 && st.journal.ev[e] !== 2);
+          if (!ruled.length) { this.event({ t: 'relic', pid, text: 'The relic is silent. It has nothing more to tell you.' }); return; }
+          const ev = this.rng.pick(ruled);
+          st.journal.ev[ev] = 2;
+          const name = NW.EVIDENCE_BY_ID[ev].name;
+          this.event({ t: 'relic', pid, ev, text: 'The relic whispers what is NOT here: ' + name + '. (Ruled out in the journal.)' });
+          this.log(p.name + ' used the relic: ' + name + ' ruled out.');
           return;
         }
         case 'ptt': { // push-to-talk on the personal radio (voice chat)

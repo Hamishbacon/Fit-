@@ -321,6 +321,30 @@
       this.lights = keep;
       for (const r of this.rooms) r.lights = [];
       for (const l of this.lights) this.rooms[l.room].lights.push(l.id);
+      // haunted electronics: one TV / monitor / radio against a wall in suitable rooms
+      const DEV = { living: 'tv', bedroom: 'radio', kitchen: 'radio', office: 'monitor', control: 'monitor', ward: 'monitor', exam: 'monitor', lab: 'monitor', dome: 'monitor', theatre: 'monitor', ticket: 'monitor', cafe: 'radio', lobby: 'radio', cabin: 'radio', hall: 'tv', laundry: 'radio', records: 'radio', archive: 'radio', pharmacy: 'radio' };
+      this.devices = [];
+      const wallSpot = (r) => {
+        for (let tries = 0; tries < 30; tries++) {
+          const t = this.rng.pick(r.tiles), x = t % W, z = (t / W) | 0;
+          if (!isRoomCh(this.grid[r.f][t]) || this._nearDoor(r.f, x, z)) continue;
+          for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const c = this.ch(r.f, x + dx, z + dz);
+            if (c === '#') return { f: r.f, x: x + 0.5 + dx * 0.36, z: z + 0.5 + dz * 0.36, ry: Math.atan2(-dx, -dz), room: r.id, tx: x, tz: z };
+          }
+        }
+        return null;
+      };
+      for (const r of this.rooms) {
+        const kind = DEV[r.kind];
+        if (!kind || r.outdoor || !this.rng.chance(0.75)) continue;
+        const sp = wallSpot(r); if (!sp) continue;
+        sp.id = this.devices.length; sp.kind = kind; this.devices.push(sp);
+      }
+      // the site relic: an object tied to the haunting
+      const RELICS = { observatory: 'Halvorsen\'s listening plate', apartments: 'Wind-up music box', clinic: 'Patient bracelet No. 7', ferry: 'The Caldera\'s bell' };
+      const cands = this.lairCandidates();
+      for (let k = 0; k < 10 && !this.relic; k++) { const sp = wallSpot(this.rng.pick(cands)); if (sp) this.relic = Object.assign(sp, { name: RELICS[this.loc.id] || 'Relic' }); }
       // breaker / generator
       const gp = this.props.find((p) => p.ch === 'G');
       this.generator = gp ? { f: gp.f, x: gp.x + 0.5, z: gp.z + 0.5, room: gp.room } : null;

@@ -180,6 +180,8 @@
         case 'note': return '[E] Read document';
         case 'item': { const it = st.items[ia.id]; if (!it) return null; const def = NW.EQUIPMENT_BY_ID[it.type]; const extra = (it.type === 'elight' || it.type === 'beacon') && it.placed ? '   [R] ' + (it.type === 'beacon' ? 'Activate' : 'Toggle') : ''; return '[E] Pick up ' + def.name + extra; }
         case 'touch': return '[Hold E] Swab touch point';
+        case 'device': { const d = st.devices[ia.id], dv = g.world.devices[ia.id]; const nm = { tv: 'television', monitor: 'monitor', radio: 'radio' }[dv.kind]; return '[E] Switch ' + (d && d.on ? 'off' : 'on') + ' the ' + nm; }
+        case 'relic': return st.relic && st.relic.uses > 0 ? '[E] Use ' + g.world.relic.name + ' — risky (' + st.relic.uses + ' left)' : g.world.relic.name + ' (spent)';
       }
       return null;
     }
@@ -196,6 +198,8 @@
         case 'note': g.net.act({ k: 'note', id: ia.id }); break;
         case 'item': g.net.act({ k: 'pickup', item: ia.id }); NW.Audio.play('pickup', null, 0.6, { ui: true }); break;
         case 'touch': g.equip.tryBeginSwab(a.obj); break;
+        case 'device': g.net.act({ k: 'device', id: ia.id }); NW.Audio.play('click', a.point, 0.6); break;
+        case 'relic': if (g.state.hunting) NW.UI.toast('Not now.'); else g.net.act({ k: 'relic' }); break;
       }
     }
     /** R on a placed beacon / e-light toggles it. */

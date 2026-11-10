@@ -89,6 +89,8 @@
       if (s.beaconActive) w.manifest = (w.manifest || 1) * 4;
       if (!s.findItemNear('slate', s.entity.pos, 5, (it) => it.placed || !it.holder)) w.write = 0;
       if (!s.state.power) w.light = 0.3;
+      const devNear = s.world.devices.some((d) => d.f === s.entity.pos.f && U.dist(d.x, d.z, s.entity.pos.x, s.entity.pos.z) < 8);
+      w.device = devNear ? (s.entity.has('drain') ? 6 : 1.5) : 0;
       let total = 0; for (const k in w) total += w[k];
       let r = s.rng() * total;
       for (const k in w) { r -= w[k]; if (r <= 0) return k; }
@@ -180,6 +182,16 @@
         }
         case 'steps_echo': s.emitSound('steps', opts.x, opts.z, opts.f, 0.8); break;
         case 'emf': this.emf(pos.x, ent.y + 1, pos.z, pos.f); break;
+        case 'device': {
+          const devs = w.devices.filter((d) => d.f === pos.f && U.dist(d.x, d.z, pos.x, pos.z) < 8);
+          if (!devs.length) return this.perform('emf');
+          const d = rng.pick(devs);
+          if (s.state.devices[d.id].on) s.setDevice(d.id, false, 'entity');
+          else s.setDevice(d.id, true, 'entity', rng.range(15, 40));
+          this.emf(d.x, pos.f * w.FH + 0.9, d.z, d.f);
+          this.touchAt(d.x, pos.f * w.FH + 0.9, d.z, d.f);
+          break;
+        }
         case 'cold': {
           s.state.rooms[ent.lair].temp -= 0.6;
           if (ent.has('deteriorate')) { const r = w.roomAtPos(pos); if (r >= 0) s.state.rooms[r].haze = Math.min(1, s.state.rooms[r].haze + 0.15); }

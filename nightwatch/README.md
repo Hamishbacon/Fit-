@@ -54,6 +54,8 @@ On **Training**, a Field Briefing walks you through your first investigation ste
 - **14 pieces of equipment**, with batteries or charges, screens, sounds and upgrade tiers.
 - **Field Composure** replaces a sanity meter. It drops in darkness, when you're alone, near the entity, and when you witness things. Low composure muffles sound, drains colour and causes false events that only you see.
 - **Difficulties:** Training, Standard, Professional and Nightmare, plus Custom sliders. Harder difficulties add unreliable readings, isolated false readings and, on Nightmare, one missing evidence type.
+- **Site relics and haunted electronics:** each location has a relic (a photographic plate, a music box, a patient bracelet, a ship's bell). Using it costs composure and may provoke a pursuit; otherwise it rules out one evidence type. TVs, monitors and radios switch themselves on to static near the entity.
+- **Atmosphere:** furnished rooms (art, notices, clocks, radiators, pipes, chairs, papers, signs, stains, scratched words), rain, a storm at the ferry, snow at the observatory, lightning in sync across co-op, and dust in the torch beam.
 - **Progression:** research credits, XP and ranks, equipment stock (gear carried by an incapacitated investigator is lost), upgrades, unlockable sites and difficulties, and cosmetic suits, torches and patches. Everything is earned in play. Nothing is for sale, and upgrades never make entities easier.
 
 ## Architecture
@@ -79,6 +81,8 @@ nightwatch/
     audio.js                  AudioSystem: synthesised spatial sound
     ui.js                     UIManager: menus, HQ, lobby, HUD, tablet, results
     tutorial.js               Field Briefing (guided Training run) + one-time hints
+    decor.js                  procedural room dressing and decals (merged per floor)
+    atmosphere.js             weather, lightning, torch-lit dust
     voice.js                  VoiceChat: WebRTC mesh, proximity + radio routing
     save.js                   SaveSystem + progression
     game.js, main.js          orchestration and main loop
@@ -100,7 +104,7 @@ Adding content:
 npm test
 ```
 
-This runs `tests/maps.test.js`, which rasterises every map and checks every room and hiding spot is reachable across floors. It then runs `tests/sim.test.js`, which runs all 15 entities on all 4 maps with bot investigators. Then it runs `tests/evidence.test.js`, which checks that each entity produces only its own evidence and that all three can be found. Finally `tests/server.test.js` starts the real server and drives two WebSocket clients through a lobby, a mission, the voice-signalling relay and the shared ending.
+This runs `tests/maps.test.js`, which rasterises every map and checks every room and hiding spot is reachable across floors. It then runs `tests/sim.test.js`, which runs all 15 entities on all 4 maps with bot investigators. Then it runs `tests/evidence.test.js` and `tests/features.test.js` (relic and electronics), which checks that each entity produces only its own evidence and that all three can be found. Finally `tests/server.test.js` starts the real server and drives two WebSocket clients through a lobby, a mission, the voice-signalling relay and the shared ending.
 
 ## Development phases
 
@@ -111,6 +115,6 @@ This runs `tests/maps.test.js`, which rasterises every map and checks every room
 | 3. Evidence system, instruments, entity database/journal | Done |
 | 4. Multiplayer, synchronisation, communication | Done: dedicated server, lobbies, drop-in, shared journal, WebRTC proximity and radio voice, text radio with interference |
 | 5. More entities, locations, progression, difficulties | Done: 15 entities, 4 locations |
-| 6. Polish | Bloom and filmic grading, jointed figures with shrouds, Field Briefing, hints, FPS counter |
+| 6. Polish | Closed wall geometry with exterior shells and window reveals, a fixed light budget, per-floor drawing, 512 px textures with normal maps, bloom and grading, room dressing, weather, jointed figures, Field Briefing |
 
 Because the server runs the simulation, a mission keeps going if the host disconnects; the next player becomes lobby host. Possible next steps: delta-compressed snapshots, a TURN relay bundled with the server, and more sites.

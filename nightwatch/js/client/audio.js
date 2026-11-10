@@ -135,6 +135,7 @@
         case 'pickup': this._nz(t, 0.05, out, 0.3, 'bandpass', 2000, 2); break;
         case 'ui': this._osc('sine', (extra && extra.f) || 700, (extra && extra.f) || 700, t, 0.05, out, 0.06); break;
         case 'voice': this._voice(t, out, extra && extra.text); break;
+        case 'thunder': { const f = this._nz(t, 4.5, out, 0.9, 'lowpass', 220, 0.8, 0.08); f.frequency.exponentialRampToValueAtTime(70, t + 4.4); this._nz(t, 0.6, out, 0.5, 'lowpass', 900, 1, 0.02); this._osc('sine', 45, 30, t, 3, out, 0.4); break; }
         case 'catch': this._osc('sawtooth', 400, 30, t, 1.4, out, 0.4); this._nz(t, 1.2, out, 0.6, 'lowpass', 3000, 1, 0.01); break;
         default: this._nz(t, 0.1, out, 0.2, 'bandpass', 1000, 1);
       }
@@ -185,6 +186,22 @@
       }
     }
     setAmbienceLevel(v) { if (this.amb) this.amb.g.gain.setTargetAtTime(0.5 * v, this.ctx.currentTime, 0.5); }
+    /** Rain / wind bed, 0..1 (indoors it is quieter and duller). */
+    setRain(level, kind) {
+      if (!this.ctx) return;
+      if (!this.rain && level > 0) {
+        const ctx = this.ctx, s = ctx.createBufferSource(); s.buffer = this.noiseBuf; s.loop = true;
+        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2500; f.Q.value = 0.4;
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6000;
+        const g = ctx.createGain(); g.gain.value = 0; s.connect(f); f.connect(lp); lp.connect(g); g.connect(this.filter); s.start();
+        this.rain = { s, f, lp, g };
+      }
+      if (!this.rain) return;
+      const snow = kind === 'snow';
+      this.rain.g.gain.setTargetAtTime(level * (snow ? 0.12 : kind === 'storm' ? 0.3 : 0.2), this.ctx.currentTime, 0.6);
+      this.rain.lp.frequency.setTargetAtTime(level >= 0.9 ? 7000 : 1400, this.ctx.currentTime, 0.4);
+      this.rain.f.frequency.value = snow ? 500 : 2500;
+    }
     /** Generator / power hum. */
     setHum(on, pos) {
       if (!this.ctx) return;

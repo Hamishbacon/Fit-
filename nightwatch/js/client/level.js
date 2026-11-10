@@ -50,125 +50,165 @@
   function mat(key, opts) {
     if (MAT_CACHE[key]) return MAT_CACHE[key];
     const o = Object.assign({ roughness: 0.9, metalness: 0.05 }, opts || {});
-    if (o.tex) { o.map = NW.Tex.get(o.tex); delete o.tex; }
+    if (o.tex) { o.map = NW.Tex.get(o.tex); if (o.normal) { o.normalMap = NW.Tex.normal(o.tex); o.normalScale = new THREE.Vector2(0.9, 0.9); } delete o.tex; }
+    delete o.normal;
     const m = new THREE.MeshStandardMaterial(o);
     MAT_CACHE[key] = m;
     return m;
+  }
+
+  /** Fixed-size pool of point lights shared by every light source in the scene.
+   *  Forward rendering pays for every light on every pixel, so the light count
+   *  is constant (no shader recompiles) and only the most relevant sources
+   *  near the camera get a real light each frame; the rest stay emissive. */
+  class LightBudget {
+    constructor(parent, n) {
+      this.pool = []; this.req = [];
+      for (let i = 0; i < n; i++) { const l = new THREE.PointLight(0xffffff, 0, 8, 2); parent.add(l); this.pool.push(l); }
+    }
+    begin() { this.req.length = 0; }
+    /** r: { x, y, z, color, intensity, distance, priority } */
+    request(r) { if (r.intensity > 0.01) this.req.push(r); }
+    end(cam) {
+      const cx = cam.position.x, cy = cam.position.y, cz = cam.position.z;
+      for (const r of this.req) r._s = ((r.x - cx) ** 2 + ((r.y - cy) * 2.5) ** 2 + (r.z - cz) ** 2) / ((r.priority || 1) * (r.distance || 8));
+      this.req.sort((a, b) => a._s - b._s);
+      for (let i = 0; i < this.pool.length; i++) {
+        const l = this.pool[i], r = this.req[i];
+        if (!r) { l.intensity = 0; continue; }
+        l.position.set(r.x, r.y, r.z); l.color.set(r.color); l.intensity = r.intensity; l.distance = r.distance || 8;
+      }
+    }
   }
 
   class LevelManager {
     constructor(scene, world, locId, quality) {
       this.scene = scene; this.w = world; this.locId = locId; this.quality = quality;
       this.root = new THREE.Group(); scene.add(this.root);
+      this.floorGroups = [];
+      for (let f = 0; f < world.nf; f++) { const g = new THREE.Group(); this.root.add(g); this.floorGroups.push(g); }
+      this.groundF = world.spawn.f;
       this.builders = {};
       this.interactables = [];
       this.doorMeshes = []; this.fixtures = []; this.switchMeshes = []; this.throwMeshes = {}; this.itemMeshes = {}; this.noteMeshes = {};
-      this.traceMeshes = {}; this.lightPool = [];
+      this.traceMeshes = {}; this.deviceMeshes = [];
       this.flicker = {}; // room -> until
+      this.budget = new LightBudget(this.root, quality === 'low' ? 4 : quality === 'medium' ? 5 : 6);
       this._buildStatic();
       this._buildDoors();
       this._buildLights();
       this._buildHides();
       this._buildSpecial();
+      this._buildDevices();
       this._buildSky();
+      if (NW.Decor) NW.Decor.decorate(this);
       for (const key in this.builders) {
         const b = this.builders[key];
         if (b.geo.empty) continue;
         const mesh = new THREE.Mesh(b.geo.build(), b.mat);
-        mesh.receiveShadow = true; mesh.castShadow = b.cast !== false;
-        mesh.matrixAutoUpdate = false;
-        this.root.add(mesh);
+        mesh.receiveShadow = true; mesh.castShadow = b.cast !== false && quality === 'high';
+        mesh.matrixAutoUpdate = false; mesh.updateMatrix();
+        (b.f != null ? this.floorGroups[b.f] : this.root).add(mesh);
       }
     }
 
-    B(key, material, cast) {
-      if (!this.builders[key]) this.builders[key] = { geo: new GeoBuilder(), mat: material, cast };
-      return this.builders[key].geo;
+    /** Merged-geometry builder for a material on a floor. */
+    B(key, material, cast, f) {
+      const k = (f == null ? 'g' : f) + '|' + key;
+      if (!this.builders[k]) this.builders[k] = { geo: new GeoBuilder(), mat: material, cast, f };
+      return this.builders[k].geo;
     }
     surfMat(roomKind, part) {
       const name = NW.Tex.surfaceFor(this.locId, roomKind, part);
-      const rough = name === 'metal' || name === 'tile' ? 0.55 : name === 'checker' || name === 'lino' ? 0.7 : 0.92;
-      return { key: part + ':' + name, mat: mat('s:' + name, { tex: name, roughness: rough, metalness: name === 'metal' ? 0.35 : 0.02 }) };
+      return { key: part + ':' + name, mat: this.texMat(name) };
+    }
+    texMat(name) {
+      const rough = name === 'metal' || name === 'tile' ? 0.5 : name === 'checker' || name === 'lino' ? 0.65 : name === 'hullPaint' ? 0.6 : 0.9;
+      return mat('s:' + name, { tex: name, roughness: rough, metalness: name === 'metal' ? 0.4 : 0.02, normal: this.quality !== 'low' });
+    }
+    /** Only floors near the camera are drawn (all above-ground floors when outdoors). */
+    updateVisibility(camF, outdoors) {
+      for (let f = 0; f < this.floorGroups.length; f++) this.floorGroups[f].visible = Math.abs(f - camF) <= 1 || (outdoors && f >= this.groundF);
     }
 
     /* ---------- static geometry ---------- */
+    _solid(f, x, z) { const c = this.w.ch(f, x, z); return c === '#' || c === 'W' || c === ' '; }
     _buildStatic() {
-      const w = this.w, FH = w.FH;
+      const w = this.w, FH = w.FH, DIRV = NW.World.DIRV;
       const isOpen = (c) => w._open(c);
+      const isDoor = (c) => c === 'D' || c === 'X' || c === 'L';
+      const NB = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      const extName = NW.Tex.exterior(this.locId);
       for (let f = 0; f < w.nf; f++) {
         const g = w.grid[f], ra = w.roomAt[f];
         const y0 = f * FH;
         for (let z = 0; z < w.H; z++) for (let x = 0; x < w.W; x++) {
           const i = z * w.W + x, c = g[i];
-          const solid = !isOpen(c);
           const rid = ra[i];
           const room = rid >= 0 ? w.rooms[rid] : null;
-          // floors: under every open tile and under props/hides
-          if (c !== ' ' && c !== '#' && c !== 'W' && c !== '_' && !NW.World.DIRV[c] && room) {
-            const { key, mat: m } = this.surfMat(room.outdoor ? (room.kind === 'roof' || room.kind === 'deck' ? room.kind : 'outdoor') : room.kind, 'floor');
+          const wallTile = c === '#' || c === 'W' || c === ' ';
+          // ---- floors (not under shafts or stair runs)
+          if (!wallTile && c !== '_' && c !== ':' && !DIRV[c] && room) {
+            const kind = room.outdoor ? (room.kind === 'roof' || room.kind === 'deck' ? room.kind : 'outdoor') : room.kind;
+            const { key, mat: m } = this.surfMat(kind, 'floor');
             const sc = 0.5;
-            this.B(key, m, false).quad([x, y0, z + 1], [x + 1, y0, z + 1], [x + 1, y0, z], [x, y0, z], [0, 1, 0], [[x * sc, (z + 1) * sc], [(x + 1) * sc, (z + 1) * sc], [(x + 1) * sc, z * sc], [x * sc, z * sc]]);
-            // floor slab underside seen from the floor below (stair shafts)
+            this.B(key, m, false, f).quad([x, y0, z + 1], [x + 1, y0, z + 1], [x + 1, y0, z], [x, y0, z], [0, 1, 0], [[x * sc, (z + 1) * sc], [(x + 1) * sc, (z + 1) * sc], [(x + 1) * sc, z * sc], [x * sc, z * sc]]);
           }
-          // ceilings for indoor rooms (also over doors/props in that room)
-          if (room && !room.outdoor && c !== '#' && c !== 'W' && c !== ' ') {
-            const above = f + 1 < w.nf ? w.grid[f + 1][i] : null;
-            const isStair = !!NW.World.DIRV[c];
-            if (!isStair && c !== '_') {
-              const h = (c === 'D' || c === 'X' || c === 'L') ? Math.min(room.h, 2.25) : room.h;
-              const { key, mat: m } = this.surfMat(room.kind, 'ceil');
-              const yc = y0 + h, sc = 0.5;
-              if (c === 'D' || c === 'X' || c === 'L') {
-                const lm = this.surfMat(room.kind, 'wall');
-                this.B(lm.key, lm.mat).quad([x, yc, z], [x + 1, yc, z], [x + 1, yc, z + 1], [x, yc, z + 1], [0, -1, 0], [[0, 0], [1, 0], [1, 1], [0, 1]]);
-              } else this.B(key, m, false).quad([x, yc, z], [x + 1, yc, z], [x + 1, yc, z + 1], [x, yc, z + 1], [0, -1, 0], [[x * sc, z * sc], [(x + 1) * sc, z * sc], [(x + 1) * sc, (z + 1) * sc], [x * sc, (z + 1) * sc]]);
-              void above;
+          if (c === ':' && room) { // floor under railings
+            const { key, mat: m } = this.surfMat(room.outdoor ? 'outdoor' : room.kind, 'floor');
+            this.B(key, m, false, f).quad([x, y0, z + 1], [x + 1, y0, z + 1], [x + 1, y0, z], [x, y0, z], [0, 1, 0], [[x * 0.5, (z + 1) * 0.5], [(x + 1) * 0.5, (z + 1) * 0.5], [(x + 1) * 0.5, z * 0.5], [x * 0.5, z * 0.5]]);
+          }
+          // ---- ceilings (rooms, doors, railings and the top of stair shafts)
+          if (room && !room.outdoor && !wallTile && !DIRV[c]) {
+            const h = isDoor(c) ? 2.25 : room.h;
+            const yc = y0 + h, sc = 0.5;
+            const { key, mat: m } = isDoor(c) ? this.surfMat(room.kind, 'wall') : this.surfMat(room.kind, 'ceil');
+            this.B(key, m, false, f).quad([x, yc, z], [x + 1, yc, z], [x + 1, yc, z + 1], [x, yc, z + 1], [0, -1, 0], [[x * sc, z * sc], [(x + 1) * sc, z * sc], [(x + 1) * sc, (z + 1) * sc], [x * sc, (z + 1) * sc]]);
+          }
+          // ---- interior walls: faces from every non-wall tile toward solid neighbours
+          if (!wallTile && c !== '_' && room && !room.outdoor) {
+            const spans = [];
+            if (DIRV[c]) {
+              const up = f + 1 < w.nf ? w.roomAt[f + 1][i] : -1;
+              spans.push([f, y0, y0 + FH], [f + 1, y0 + FH, y0 + FH + (up >= 0 ? w.rooms[up].h : 2.8)]);
+            } else spans.push([f, y0, y0 + (isDoor(c) ? Math.max(2.6, ...w.doorAtFast(f, x, z).rooms.map((r) => w.rooms[r].h || 3)) : room.h)]);
+            for (const [dx, dz] of NB) {
+              for (const [sf, ya, yb] of spans) {
+                if (!this._solid(sf, x + dx, z + dz)) continue;
+                const win = w.ch(sf, x + dx, z + dz) === 'W';
+                this._face(sf, x, z, dx, dz, ya, yb, this.surfMat(room.kind, 'wall'), win, !isDoor(c) && !DIRV[c] && sf === f);
+              }
             }
           }
-          if (solid && (c === '#' || c === 'W' || c === ' ' || c === ':' || !room)) continue;
-          // walls: faces from open (or furnished) tile toward solid neighbours
-          const roomKind = room ? (room.outdoor ? 'outdoor' : room.kind) : 'corridor';
-          let h = room ? (room.outdoor ? 0 : room.h) : 3;
-          if (NW.World.DIRV[c]) h = FH + 2.8;            // stair shaft spans two floors
-          if (c === '_') h = 0;                          // covered by the stair below
-          const nb = [[1, 0, 'e'], [-1, 0, 'w'], [0, 1, 's'], [0, -1, 'n']];
-          for (const [dx, dz] of nb) {
-            const nx = x + dx, nz = z + dz;
-            const nc = w._in(nx, nz) ? g[nz * w.W + nx] : ' ';
-            if (isOpen(nc)) continue;
-            if ('TCBOGKMYQNF~H'.indexOf(nc) >= 0) continue; // props are not walls
-            if (nc === ':') continue;
-            let wh = h;
-            if (room && room.outdoor) {
-              if (nc === ' ') continue; // cliff / void edge
-              // building facade: rise through every floor that is also wall here
-              let k = f; wh = 0;
-              while (k < w.nf && (w.grid[k][nz * w.W + nx] === '#' || w.grid[k][nz * w.W + nx] === 'W' || (k > f && w.grid[k][nz * w.W + nx] !== ' '))) { wh += FH; k++; }
-              wh = Math.max(wh, 3.2) + 0.5;
-            }
-            if (c === 'D' || c === 'X' || c === 'L') wh = room ? room.h : 3;
-            if (wh <= 0) continue;
-            this._wall(f, x, z, dx, dz, y0, wh, roomKind, nc === 'W' && !(room && room.outdoor && false));
+          // outdoor tiles against props/railings get nothing; against walls the wall's own exterior shell is drawn below
+          if (isDoor(c)) this._doorFrame(f, x, z, y0, room);
+        }
+        // ---- exterior shell, window reveals and wall caps
+        for (let z = 0; z < w.H; z++) for (let x = 0; x < w.W; x++) {
+          const c = g[z * w.W + x];
+          if (c !== '#' && c !== 'W') continue;
+          let exterior = false;
+          for (const [dx, dz] of NB) {
+            const nc = w.ch(f, x + dx, z + dz);
+            const nr = w.roomIdAt(f, x + dx + 0.5, z + dz + 0.5);
+            const outside = nc === ' ' || (nr >= 0 && w.rooms[nr].outdoor && w._open(nc));
+            if (!outside || (nc === ' ' && f < this.groundF)) continue;
+            exterior = true;
+            this._face(f, x + dx, z + dz, -dx, -dz, y0, y0 + FH, { key: 'ext:' + extName, mat: this.texMat(extName) }, c === 'W', false);
           }
-          // door lintel above the leaf
-          if (c === 'D' || c === 'X' || c === 'L') {
-            const d = w.doorAtFast(f, x, z);
-            const hh = Math.max(...d.rooms.map((r) => w.rooms[r].h || 3), 2.6);
-            const lm = this.surfMat(roomKind, 'wall');
-            const b = this.B(lm.key, lm.mat);
-            const top = y0 + hh, bot = y0 + 2.25;
-            if (d.pass === 'z') {
-              b.quad([x, bot, z], [x + 1, bot, z], [x + 1, top, z], [x, top, z], [0, 0, -1], [[0, 0], [1, 0], [1, 1], [0, 1]]);
-              b.quad([x + 1, bot, z + 1], [x, bot, z + 1], [x, top, z + 1], [x + 1, top, z + 1], [0, 0, 1], [[0, 0], [1, 0], [1, 1], [0, 1]]);
-            } else {
-              b.quad([x, bot, z + 1], [x, bot, z], [x, top, z], [x, top, z + 1], [-1, 0, 0], [[0, 0], [1, 0], [1, 1], [0, 1]]);
-              b.quad([x + 1, bot, z], [x + 1, bot, z + 1], [x + 1, top, z + 1], [x + 1, top, z], [1, 0, 0], [[0, 0], [1, 0], [1, 1], [0, 1]]);
+          if (c === 'W') this._windowReveal(f, x, z, y0);
+          // cap the top of walls that nothing sits on (roofs, parapets, cliff edges)
+          const above = f + 1 < w.nf ? w.grid[f + 1][z * w.W + x] : ' ';
+          if (exterior && (above === ' ' || !(above === '#' || above === 'W'))) {
+            const roofNext = f + 1 < w.nf && NB.some(([dx, dz]) => { const r = w.roomIdAt(f + 1, x + dx + 0.5, z + dz + 0.5); return r >= 0 && w.rooms[r].outdoor; });
+            const top = y0 + FH + (roofNext ? 0.7 : 0.15);
+            const em = this.texMat(extName);
+            if (top > y0 + FH) for (const [dx, dz] of NB) {
+              const nc = f + 1 < w.nf ? w.grid[f + 1][(z + dz) * w.W + x + dx] : ' ';
+              if (nc === '#' || nc === 'W') continue;
+              this._face(f, x + dx, z + dz, -dx, -dz, y0 + FH, top, { key: 'ext:' + extName, mat: em }, false, false);
             }
-            // frame
-            const fm = mat('doorframe', { color: 0x3b2f25, roughness: 0.7 });
-            const fb = this.B('doorframe', fm);
-            if (d.pass === 'z') { fb.addGeometry(BOX, M4(x + 0.05, y0 + 1.12, z + 0.5, 0, 0.1, 2.25, 1.02)); fb.addGeometry(BOX, M4(x + 0.95, y0 + 1.12, z + 0.5, 0, 0.1, 2.25, 1.02)); fb.addGeometry(BOX, M4(x + 0.5, y0 + 2.22, z + 0.5, 0, 1, 0.08, 1.02)); }
-            else { fb.addGeometry(BOX, M4(x + 0.5, y0 + 1.12, z + 0.05, 0, 1.02, 2.25, 0.1)); fb.addGeometry(BOX, M4(x + 0.5, y0 + 1.12, z + 0.95, 0, 1.02, 2.25, 0.1)); fb.addGeometry(BOX, M4(x + 0.5, y0 + 2.22, z + 0.5, 0, 1.02, 0.08, 1)); }
+            this.B('ext:' + extName, em, true, f).quad([x, top, z + 1], [x + 1, top, z + 1], [x + 1, top, z], [x, top, z], [0, 1, 0], [[0, 0], [0.5, 0], [0.5, 0.5], [0, 0.5]]);
           }
         }
         // props on this floor
@@ -179,91 +219,127 @@
           if (c === ':') this._railTile(f, x, z);
           const rid = ra[z * w.W + x];
           if (rid >= 0 && w.rooms[rid].outdoor && (w.rooms[rid].kind === 'deck' || w.rooms[rid].kind === 'roof') && isOpen(c)) {
-            for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            for (const [dx, dz] of NB) {
               const nc = w._in(x + dx, z + dz) ? g[(z + dz) * w.W + x + dx] : ' ';
               if (nc === ' ') this._edgeRail(f, x, z, dx, dz);
             }
           }
         }
-        // stairs
         for (const r of w.stairs) if (r.f === f) this._stairs(r);
-        // shaft slab edges on the upper floor
+        // slab edges around shafts on the upper floor
         for (let z = 0; z < w.H; z++) for (let x = 0; x < w.W; x++) {
           if (g[z * w.W + x] !== '_') continue;
-          for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          for (const [dx, dz] of NB) {
             const nc = w._in(x + dx, z + dz) ? g[(z + dz) * w.W + x + dx] : ' ';
-            if (nc === '_' ) continue;
-            const yA = y0 - 0.45, yB = y0;
-            const m = mat('slab', { color: 0x4a4844, roughness: 1 });
-            const b = this.B('slab', m);
-            const cx = x + 0.5 + dx * 0.5, cz = z + 0.5 + dz * 0.5;
-            b.addGeometry(BOX, M4(cx, (yA + yB) / 2, cz, 0, dx ? 0.04 : 1, yB - yA, dz ? 0.04 : 1));
+            if (nc === '_') continue;
+            const b = this.B('slab', mat('slab', { color: 0x4a4844, roughness: 1 }), true, f);
+            b.addGeometry(BOX, M4(x + 0.5 + dx * 0.5, y0 - 0.225, z + 0.5 + dz * 0.5, 0, dx ? 0.04 : 1, 0.45, dz ? 0.04 : 1));
           }
         }
       }
       // sea / ground beyond the site
-      if (this.w.loc.sea) {
-        const sea = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x0c1416, roughness: 0.25, metalness: 0.3, map: NW.Tex.get('water') }));
-        sea.material.map.repeat.set(60, 60);
-        sea.rotation.x = -Math.PI / 2; sea.position.set(this.w.W / 2, this.w.FH - 1.1, this.w.H / 2);
+      if (w.loc.sea) {
+        const sm = new THREE.MeshStandardMaterial({ color: 0x0c1416, roughness: 0.18, metalness: 0.4, map: NW.Tex.get('water') });
+        sm.map = sm.map.clone(); sm.map.needsUpdate = true; sm.map.repeat.set(60, 60);
+        const sea = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), sm);
+        sea.rotation.x = -Math.PI / 2; sea.position.set(w.W / 2, w.FH - 1.1, w.H / 2);
         this.sea = sea; this.root.add(sea);
       } else {
         const gm = new THREE.MeshStandardMaterial({ color: 0x1d1f1c, roughness: 1, map: NW.Tex.get(this.locId === 'apartments' ? 'asphalt' : 'gravel') });
         gm.map = gm.map.clone(); gm.map.needsUpdate = true; gm.map.repeat.set(80, 80);
         const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), gm);
-        ground.rotation.x = -Math.PI / 2;
-        const sp = this.w.spawn;
-        ground.position.set(this.w.W / 2, sp.f * this.w.FH - 0.02, this.w.H / 2);
+        ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
+        ground.position.set(w.W / 2, this.groundF * w.FH - 0.02, w.H / 2);
         this.root.add(ground);
       }
       // flooded rooms: shallow water surface
-      const wm = new THREE.MeshStandardMaterial({ color: 0x223436, roughness: 0.12, metalness: 0.4, transparent: true, opacity: 0.82 });
-      for (const r of this.w.rooms) {
+      this.waterMat = new THREE.MeshStandardMaterial({ color: 0x1d2e30, roughness: 0.08, metalness: 0.5, transparent: true, opacity: 0.84, normalMap: this.quality !== 'low' ? NW.Tex.normal('water') : null });
+      for (const r of w.rooms) {
         if (!r.flooded) continue;
-        const b = this.B('floodwater', wm, false);
+        const b = this.B('floodwater', this.waterMat, false, r.f);
         for (const i of r.tiles) {
-          const x = i % this.w.W, z = (i / this.w.W) | 0, y = r.f * FH + 0.35;
-          if (!this.w._open(this.w.grid[r.f][i])) continue;
-          b.quad([x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [x, y, z], [0, 1, 0], [[0, 1], [1, 1], [1, 0], [0, 0]]);
+          const x = i % w.W, z = (i / w.W) | 0, y = r.f * FH + 0.35;
+          if (!w._open(w.grid[r.f][i]) && w.grid[r.f][i] !== ':') continue;
+          b.quad([x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [x, y, z], [0, 1, 0], [[x * 0.25, (z + 1) * 0.25], [(x + 1) * 0.25, (z + 1) * 0.25], [(x + 1) * 0.25, z * 0.25], [x * 0.25, z * 0.25]]);
         }
       }
     }
 
-    _wall(f, x, z, dx, dz, y0, h, roomKind, isWindow) {
-      const { key, mat: m } = this.surfMat(roomKind, 'wall');
-      const b = this.B(key, m);
-      // face lies on the boundary between (x,z) and (x+dx, z+dz), normal points back into (x,z)
+    /** A wall face on the boundary of tile (x,z) toward (x+dx,z+dz), facing back into (x,z). */
+    _face(f, x, z, dx, dz, ya, yb, sm, isWindow, trim) {
+      const b = this.B(sm.key, sm.mat, true, f);
       let a, bb, nrm;
       if (dx === 1) { a = [x + 1, z + 1]; bb = [x + 1, z]; nrm = [-1, 0, 0]; }
       else if (dx === -1) { a = [x, z]; bb = [x, z + 1]; nrm = [1, 0, 0]; }
       else if (dz === 1) { a = [x, z + 1]; bb = [x + 1, z + 1]; nrm = [0, 0, -1]; }
       else { a = [x + 1, z]; bb = [x, z]; nrm = [0, 0, 1]; }
-      const u0 = (dx ? z : x) * 0.5, u1 = u0 + 0.5, v = (yy) => (yy - y0) / 2.4;
-      const seg = (ya, yb) => b.quad([a[0], ya, a[1]], [bb[0], ya, bb[1]], [bb[0], yb, bb[1]], [a[0], yb, a[1]], nrm, [[u0, v(ya)], [u1, v(ya)], [u1, v(yb)], [u0, v(yb)]]);
-      if (!isWindow) { seg(y0, y0 + h); }
-      else {
-        seg(y0, y0 + 0.9); seg(y0 + 2.1, y0 + h);
-        // glass pane (moonlit) set slightly into the wall
-        const gm = mat('glass', { color: 0x0e1622, emissive: 0x1b2a44, emissiveIntensity: 0.55, roughness: 0.15, metalness: 0.4, transparent: true, opacity: 0.85 });
-        const gb = this.B('glass', gm, false);
-        const off = 0.12;
-        const ax = a[0] - nrm[0] * off, az = a[1] - nrm[2] * off, bx = bb[0] - nrm[0] * off, bz = bb[1] - nrm[2] * off;
-        gb.quad([ax, y0 + 0.9, az], [bx, y0 + 0.9, bz], [bx, y0 + 2.1, bz], [ax, y0 + 2.1, az], nrm, [[0, 0], [1, 0], [1, 1], [0, 1]]);
-        // sill and frame
-        const fm = mat('winframe', { color: 0x2c2a26, roughness: 0.8 });
-        const fb = this.B('winframe', fm);
-        const cx = (a[0] + bb[0]) / 2 - nrm[0] * 0.06, cz = (a[1] + bb[1]) / 2 - nrm[2] * 0.06;
-        fb.addGeometry(BOX, M4(cx, y0 + 0.88, cz, 0, dx ? 0.16 : 1, 0.05, dz ? 0.16 : 1));
-        fb.addGeometry(BOX, M4(cx, y0 + 1.5, cz, 0, dx ? 0.04 : 0.05, 1.2, dz ? 0.04 : 0.05));
-        // wall depth around the opening
-        const wb = this.B(key, m);
-        void wb;
+      const base = f * this.w.FH;
+      const u0 = (dx ? z : x) * 0.5, u1 = u0 + 0.5, v = (yy) => (yy - base) / 2.4;
+      const seg = (p, q) => { if (q - p > 0.001) b.quad([a[0], p, a[1]], [bb[0], p, bb[1]], [bb[0], q, bb[1]], [a[0], q, a[1]], nrm, [[u0, v(p)], [u1, v(p)], [u1, v(q)], [u0, v(q)]]); };
+      const w0 = base + 0.9, w1 = base + 2.1;
+      if (isWindow && ya <= w0 && yb >= w1) { seg(ya, w0); seg(w1, yb); }
+      else seg(ya, yb);
+      if (trim) {
+        // skirting board and cornice give rooms a finished edge
+        const tm = mat('trimWood', { tex: 'trim', roughness: 0.7 });
+        const tb = this.B('trimWood', tm, false, f);
+        const cx = (a[0] + bb[0]) / 2 + nrm[0] * 0.012, cz = (a[1] + bb[1]) / 2 + nrm[2] * 0.012;
+        tb.addGeometry(BOX, M4(cx, ya + 0.06, cz, 0, dx ? 0.025 : 1, 0.12, dz ? 0.025 : 1));
+        if (yb - ya > 2.4) tb.addGeometry(BOX, M4(cx, yb - 0.035, cz, 0, dx ? 0.04 : 1, 0.07, dz ? 0.04 : 1));
       }
+    }
+    /** Glass, sill and the inner faces of a window opening so you can't see into the wall. */
+    _windowReveal(f, x, z, y0) {
+      const w = this.w;
+      const open = (dx, dz) => !this._solid(f, x + dx, z + dz) || w.ch(f, x + dx, z + dz) === ' ';
+      const alongX = !(open(1, 0) || open(-1, 0)); // opening passes through in z
+      const rm = this.texMat('concrete');
+      const b = this.B('reveal', rm, false, f);
+      const a0 = y0 + 0.9, a1 = y0 + 2.1;
+      b.quad([x, a0, z], [x + 1, a0, z], [x + 1, a0, z + 1], [x, a0, z + 1], [0, 1, 0], [[0, 0], [0.5, 0], [0.5, 0.5], [0, 0.5]]);
+      b.quad([x, a1, z], [x + 1, a1, z], [x + 1, a1, z + 1], [x, a1, z + 1], [0, -1, 0], [[0, 0], [0.5, 0], [0.5, 0.5], [0, 0.5]]);
+      const sides = alongX ? [[1, 0], [-1, 0]] : [[0, 1], [0, -1]];
+      for (const [dx, dz] of sides) if (w.ch(f, x + dx, z + dz) !== 'W') this._faceRaw(b, x, z, dx, dz, a0, a1);
+      // a single double-sided pane in the middle of the wall
+      const gm = mat('glass2', { color: 0x0e1622, emissive: 0x1b2a44, emissiveIntensity: 0.45, roughness: 0.05, metalness: 0.6, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
+      const gb = this.B('glass2', gm, false, f);
+      if (alongX) gb.quad([x, a0, z + 0.5], [x + 1, a0, z + 0.5], [x + 1, a1, z + 0.5], [x, a1, z + 0.5], [0, 0, 1], [[0, 0], [1, 0], [1, 1], [0, 1]]);
+      else gb.quad([x + 0.5, a0, z], [x + 0.5, a0, z + 1], [x + 0.5, a1, z + 1], [x + 0.5, a1, z], [1, 0, 0], [[0, 0], [1, 0], [1, 1], [0, 1]]);
+      const fm = mat('winframe', { color: 0x2c2a26, roughness: 0.7 });
+      const fb = this.B('winframe', fm, false, f);
+      if (alongX) { fb.addGeometry(BOX, M4(x + 0.5, (a0 + a1) / 2, z + 0.5, 0, 0.04, a1 - a0, 0.06)); fb.addGeometry(BOX, M4(x + 0.5, a0 + 0.02, z + 0.5, 0, 1, 0.04, 0.08)); }
+      else { fb.addGeometry(BOX, M4(x + 0.5, (a0 + a1) / 2, z + 0.5, 0, 0.06, a1 - a0, 0.04)); fb.addGeometry(BOX, M4(x + 0.5, a0 + 0.02, z + 0.5, 0, 0.08, 0.04, 1)); }
+    }
+    _faceRaw(b, x, z, dx, dz, ya, yb) {
+      let a, bb, nrm;
+      if (dx === 1) { a = [x + 1, z + 1]; bb = [x + 1, z]; nrm = [-1, 0, 0]; }
+      else if (dx === -1) { a = [x, z]; bb = [x, z + 1]; nrm = [1, 0, 0]; }
+      else if (dz === 1) { a = [x, z + 1]; bb = [x + 1, z + 1]; nrm = [0, 0, -1]; }
+      else { a = [x + 1, z]; bb = [x, z]; nrm = [0, 0, 1]; }
+      b.quad([a[0], ya, a[1]], [bb[0], ya, bb[1]], [bb[0], yb, bb[1]], [a[0], yb, a[1]], nrm, [[0, 0], [0.5, 0], [0.5, 0.5], [0, 0.5]]);
+    }
+    _doorFrame(f, x, z, y0, room) {
+      const w = this.w, d = w.doorAtFast(f, x, z);
+      const hh = Math.max(...d.rooms.map((r) => w.rooms[r].h || 3), 2.6);
+      const lm = this.surfMat(room ? (room.outdoor ? 'corridor' : room.kind) : 'corridor', 'wall');
+      const b = this.B(lm.key, lm.mat, true, f);
+      const top = y0 + hh, bot = y0 + 2.25;
+      if (d.pass === 'z') {
+        b.quad([x, bot, z], [x + 1, bot, z], [x + 1, top, z], [x, top, z], [0, 0, -1], [[0, 0], [0.5, 0], [0.5, 0.3], [0, 0.3]]);
+        b.quad([x + 1, bot, z + 1], [x, bot, z + 1], [x, top, z + 1], [x + 1, top, z + 1], [0, 0, 1], [[0, 0], [0.5, 0], [0.5, 0.3], [0, 0.3]]);
+      } else {
+        b.quad([x, bot, z + 1], [x, bot, z], [x, top, z], [x, top, z + 1], [-1, 0, 0], [[0, 0], [0.5, 0], [0.5, 0.3], [0, 0.3]]);
+        b.quad([x + 1, bot, z], [x + 1, bot, z + 1], [x + 1, top, z + 1], [x + 1, top, z], [1, 0, 0], [[0, 0], [0.5, 0], [0.5, 0.3], [0, 0.3]]);
+      }
+      // architrave frame, set just inside the opening (no coplanar faces)
+      const fb = this.B('doorframe', mat('doorframe', { tex: 'trim', roughness: 0.65 }), false, f);
+      if (d.pass === 'z') { fb.addGeometry(BOX, M4(x + 0.06, y0 + 1.12, z + 0.5, 0, 0.08, 2.25, 1.04)); fb.addGeometry(BOX, M4(x + 0.94, y0 + 1.12, z + 0.5, 0, 0.08, 2.25, 1.04)); fb.addGeometry(BOX, M4(x + 0.5, y0 + 2.2, z + 0.5, 0, 0.96, 0.08, 1.04)); }
+      else { fb.addGeometry(BOX, M4(x + 0.5, y0 + 1.12, z + 0.06, 0, 1.04, 2.25, 0.08)); fb.addGeometry(BOX, M4(x + 0.5, y0 + 1.12, z + 0.94, 0, 1.04, 2.25, 0.08)); fb.addGeometry(BOX, M4(x + 0.5, y0 + 2.2, z + 0.5, 0, 1.04, 0.08, 0.96)); }
     }
 
     _railTile(f, x, z) {
       const m = mat('rail', { color: 0x3a3c3e, roughness: 0.5, metalness: 0.6 });
-      const b = this.B('rail', m);
+      const b = this.B('rail', m, true, f);
       const y0 = f * this.w.FH;
       b.addGeometry(CYL, M4(x + 0.5, y0 + 0.5, z + 0.5, 0, 0.06, 1, 0.06));
       b.addGeometry(BOX, M4(x + 0.5, y0 + 1.0, z + 0.5, 0, 0.9, 0.05, 0.05));
@@ -271,7 +347,7 @@
     }
     _edgeRail(f, x, z, dx, dz) {
       const m = mat('rail', { color: 0x3a3c3e, roughness: 0.5, metalness: 0.6 });
-      const b = this.B('rail', m);
+      const b = this.B('rail', m, true, f);
       const y0 = f * this.w.FH, cx = x + 0.5 + dx * 0.45, cz = z + 0.5 + dz * 0.45;
       b.addGeometry(CYL, M4(cx, y0 + 0.5, cz, 0, 0.05, 1, 0.05));
       b.addGeometry(BOX, M4(cx, y0 + 1.0, cz, 0, dx ? 0.05 : 1, 0.05, dz ? 0.05 : 1));
@@ -280,8 +356,8 @@
 
     _stairs(r) {
       const FH = this.w.FH, steps = r.len * 4;
-      const m = mat('stair', { tex: 'concrete', roughness: 0.95 });
-      const b = this.B('stair', m);
+      const m = mat('stair', { tex: 'concrete', roughness: 0.95, normal: this.quality !== 'low' });
+      const b = this.B('stair', m, true, r.f);
       const [dx, dz] = NW.World.DIRV[r.a];
       for (let j = 0; j < r.w; j++) {
         for (let s = 0; s < steps; s++) {
@@ -304,12 +380,12 @@
       // orient toward the nearest open neighbour
       let ry = 0;
       for (const [dx, dz, a] of [[0, 1, 0], [0, -1, Math.PI], [1, 0, Math.PI / 2], [-1, 0, -Math.PI / 2]]) if (w.walkable(p.f, p.x + dx, p.z + dz)) { ry = a; break; }
-      const wood = mat('propwood', { tex: 'wood', roughness: 0.75 });
+      const wood = mat('propwood', { tex: 'wood', roughness: 0.75, normal: this.quality !== 'low' });
       const metal = mat('propmetal', { color: 0x5b5f60, roughness: 0.45, metalness: 0.55 });
       const dark = mat('propdark', { color: 0x262626, roughness: 0.6, metalness: 0.3 });
-      const fabric = mat('propfabric', { tex: 'fabric', roughness: 1 });
+      const fabric = mat('propfabric', { tex: 'fabric', roughness: 1, normal: this.quality !== 'low' });
       const white = mat('propwhite', { color: 0xb8b5a8, roughness: 0.5 });
-      const add = (material, key, m) => this.B(key, material).addGeometry(BOX, m);
+      const add = (material, key, m) => this.B(key, material, true, p.f).addGeometry(BOX, m);
       switch (p.ch) {
         case 'T': // table / desk
           add(wood, 'pw', M4(x, y0 + 0.76, z, ry, 0.98, 0.05, 0.85));
@@ -367,7 +443,7 @@
           break;
         case '~': {
           const wm = mat('deepwater', { color: 0x0b1416, roughness: 0.1, metalness: 0.5 });
-          this.B('deepwater', wm, false).quad([p.x, y0 - 0.5, p.z + 1], [p.x + 1, y0 - 0.5, p.z + 1], [p.x + 1, y0 - 0.5, p.z], [p.x, y0 - 0.5, p.z], [0, 1, 0], [[0, 1], [1, 1], [1, 0], [0, 0]]);
+          this.B('deepwater', wm, false, p.f).quad([p.x, y0 - 0.5, p.z + 1], [p.x + 1, y0 - 0.5, p.z + 1], [p.x + 1, y0 - 0.5, p.z], [p.x, y0 - 0.5, p.z], [0, 1, 0], [[0, 1], [1, 1], [1, 0], [0, 0]]);
           break;
         }
         case 'F': break; // truck built separately
@@ -467,12 +543,6 @@
         this.root.add(tog);
         this.switchMeshes.push({ r, tog });
       }
-      // dynamic point-light pool assigned to the nearest lit fixtures
-      const n = this.quality === 'low' ? 3 : this.quality === 'medium' ? 5 : 7;
-      for (let i = 0; i < n; i++) {
-        const pl = new THREE.PointLight(0xffd9a0, 0, 9, 2);
-        this.root.add(pl); this.lightPool.push(pl);
-      }
     }
     updateLights(state, cam, dt, t) {
       const camF = this.w.floorFromHeight(cam.position.y - 1.2);
@@ -487,17 +557,64 @@
         fx.bulbM.emissiveIntensity = fx.level * (fx.fluorescent ? 1.6 : 2.2);
         if (fx.level > 0.05 && Math.abs(fx.l.f - camF) <= 1) lit.push(fx);
       }
-      const cx = cam.position.x, cz = cam.position.z, cy = cam.position.y;
-      lit.sort((a, b) => ((a.l.x - cx) ** 2 + (a.l.z - cz) ** 2 + ((a.l.y - cy) * 3) ** 2) - ((b.l.x - cx) ** 2 + (b.l.z - cz) ** 2 + ((b.l.y - cy) * 3) ** 2));
-      for (let i = 0; i < this.lightPool.length; i++) {
-        const pl = this.lightPool[i], fx = lit[i];
-        if (!fx) { pl.intensity = 0; continue; }
-        pl.position.set(fx.l.x, fx.l.y - 0.35, fx.l.z);
-        pl.color.set(fx.fluorescent ? 0xdfe8ff : 0xffcf90);
-        pl.intensity = fx.level * (fx.fluorescent ? 1.1 : 1.3);
-        pl.distance = fx.fluorescent ? 10 : 8;
-      }
+      for (const fx of lit) this.budget.request({ x: fx.l.x, y: fx.l.y - 0.35, z: fx.l.z, color: fx.fluorescent ? 0xdfe8ff : 0xffcf90, intensity: fx.level * (fx.fluorescent ? 1.15 : 1.35), distance: fx.fluorescent ? 10 : 8, priority: 1 });
+      if (this.streetLamps) for (const sl of this.streetLamps) { const on = Math.sin(t * 13 + sl.flick * 50) > -0.97 || sl.flick < 0.7; if (on) this.budget.request({ x: sl.x, y: sl.y, z: sl.z, color: 0xffc98a, intensity: 1.4, distance: 13, priority: 0.7 }); }
+      if (this.vanPos) this.budget.request({ x: this.vanPos.x, y: this.vanPos.y, z: this.vanPos.z, color: 0x9fe8ff, intensity: 0.8, distance: 7, priority: 0.6 });
       for (const sm of this.switchMeshes) sm.tog.position.y = sm.r.switch.y + (state.roomLights[sm.r.id] ? 0.015 : -0.015);
+    }
+
+
+    /* ---------- haunted electronics and the site relic ---------- */
+    _buildDevices() {
+      const w = this.w, FH = w.FH;
+      this.staticCanvas = NW.Tex.canvas(96, 72); this.staticTex = new THREE.CanvasTexture(this.staticCanvas);
+      const body = mat('devBody', { color: 0x2a2826, roughness: 0.5, metalness: 0.2 });
+      const wood = mat('propwood', { tex: 'wood', roughness: 0.75 });
+      for (const dv of w.devices) {
+        const g = new THREE.Group(); g.position.set(dv.x, dv.f * FH, dv.z); g.rotation.y = dv.ry;
+        const scr = new THREE.MeshStandardMaterial({ color: 0x050607, roughness: 0.2, metalness: 0.3, emissive: 0xffffff, emissiveMap: this.staticTex, emissiveIntensity: 0 });
+        const box = (m, x, y, z, sx, sy, sz) => { const o = new THREE.Mesh(BOX, m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; g.add(o); return o; };
+        let sy = 0.75;
+        if (dv.kind === 'tv') { box(wood, 0, 0.25, -0.02, 0.8, 0.5, 0.4); box(body, 0, 0.75, -0.05, 0.62, 0.48, 0.42); box(scr, 0, 0.76, 0.165, 0.5, 0.38, 0.01); sy = 0.76; }
+        else if (dv.kind === 'monitor') { box(body, 0, 0.38, -0.05, 0.5, 0.76, 0.35); box(body, 0, 0.98, -0.04, 0.44, 0.36, 0.34); box(scr, 0, 0.99, 0.135, 0.36, 0.27, 0.01); sy = 0.99; }
+        else { box(wood, 0, 0.35, 0, 0.45, 0.7, 0.35); box(body, 0, 0.8, 0, 0.36, 0.2, 0.14); box(scr, 0.08, 0.8, 0.071, 0.14, 0.08, 0.01); box(body, -0.08, 0.8, 0.075, 0.12, 0.12, 0.01); sy = 0.8; }
+        const hit = new THREE.Mesh(BOX, new THREE.MeshBasicMaterial({ visible: false })); hit.position.set(0, sy, 0); hit.scale.set(0.7, 0.6, 0.5); g.add(hit);
+        hit.userData.interact = { kind: 'device', id: dv.id };
+        this.interactables.push(hit);
+        this.floorGroups[dv.f].add(g);
+        const wp = new V3(0, sy, 0.4).applyAxisAngle(new V3(0, 1, 0), dv.ry).add(g.position);
+        this.deviceMeshes.push({ dv, scr, pos: wp });
+      }
+      const rl = w.relic;
+      if (rl) {
+        const g = new THREE.Group(); g.position.set(rl.x, rl.f * FH, rl.z); g.rotation.y = rl.ry;
+        const ped = new THREE.Mesh(BOX, wood); ped.scale.set(0.45, 0.8, 0.4); ped.position.y = 0.4; g.add(ped);
+        this.relicMat = new THREE.MeshStandardMaterial({ color: 0x8a7a58, roughness: 0.35, metalness: 0.7, emissive: 0x6fb0ff, emissiveIntensity: 0.25 });
+        let o;
+        if (this.locId === 'observatory') { o = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.01, 0.18), new THREE.MeshStandardMaterial({ color: 0x1a2028, roughness: 0.05, metalness: 0.2, emissive: 0x6fb0ff, emissiveIntensity: 0.3 })); o.position.y = 0.81; this.relicMat = o.material; }
+        else if (this.locId === 'apartments') { o = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.09, 0.12), this.relicMat); o.position.y = 0.85; const key = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.06, 6), this.relicMat); key.rotation.z = Math.PI / 2; key.position.set(0.1, 0.86, 0); g.add(key); }
+        else if (this.locId === 'clinic') { o = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.01, 6, 16), new THREE.MeshStandardMaterial({ color: 0xd8d4c8, roughness: 0.6, emissive: 0x6fb0ff, emissiveIntensity: 0.25 })); o.rotation.x = Math.PI / 2; o.position.y = 0.81; this.relicMat = o.material; }
+        else { o = new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [0.09, 0], [0.085, 0.03], [0.06, 0.12], [0.03, 0.16], [0, 0.17]].map(([a, b]) => new THREE.Vector2(a, b)), 14), this.relicMat); o.position.y = 0.8; }
+        g.add(o);
+        const hit = new THREE.Mesh(BOX, new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 0.9; hit.scale.set(0.5, 0.4, 0.5); g.add(hit);
+        hit.userData.interact = { kind: 'relic' }; this.interactables.push(hit);
+        this.floorGroups[rl.f].add(g);
+        this.relicPos = new V3(rl.x, rl.f * FH + 0.9, rl.z);
+      }
+    }
+    syncDevices(state, t) {
+      let any = false;
+      for (const dm of this.deviceMeshes) {
+        const on = state.devices && state.devices[dm.dv.id] && state.devices[dm.dv.id].on;
+        dm.scr.emissiveIntensity += ((on ? 1.3 : 0) - dm.scr.emissiveIntensity) * 0.3;
+        if (on) { any = true; this.budget.request({ x: dm.pos.x, y: dm.pos.y, z: dm.pos.z, color: 0xb8c8ff, intensity: 0.5 + Math.random() * 0.25, distance: 4.5, priority: 1.3 }); }
+      }
+      if (any && (this._stT = (this._stT || 0) + 1) % 3 === 0) {
+        const c = this.staticCanvas.getContext('2d'), img = c.createImageData(96, 72);
+        for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+        c.putImageData(img, 0, 0); this.staticTex.needsUpdate = true;
+      }
+      if (this.relicMat) this.relicMat.emissiveIntensity = state.relic && state.relic.uses > 0 ? 0.25 + Math.sin(t * 1.7) * 0.15 : 0;
     }
 
     /* ---------- hides, generator, truck, telescope ---------- */
@@ -547,7 +664,7 @@
         const ribs = mat('domeRib', { color: 0x4a4e52, roughness: 0.6, metalness: 0.5 });
         const minX = Math.min(...dome.tiles.map((i) => i % w.W)), maxX = Math.max(...dome.tiles.map((i) => i % w.W)) + 1;
         const minZ = Math.min(...dome.tiles.map((i) => (i / w.W) | 0)), maxZ = Math.max(...dome.tiles.map((i) => (i / w.W) | 0)) + 1;
-        const b = this.B('domeRib', ribs);
+        const b = this.B('domeRib', ribs, true, dome.f);
         for (let x = minX; x <= maxX; x += 2) b.addGeometry(BOX, M4(x, dome.f * w.FH + dome.h - 0.1, (minZ + maxZ) / 2, 0, 0.12, 0.25, maxZ - minZ));
       }
     }
@@ -573,7 +690,7 @@
       // monitors in the back
       const scr = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x6fe0c8, emissiveIntensity: 0.9 });
       box(scr, -0.5, 1.6, 2.2, 0.5, 0.32, 0.02); box(scr, 0.25, 1.6, 2.2, 0.5, 0.32, 0.02);
-      const vanLight = new THREE.PointLight(0x9fe8ff, 0.8, 7, 2); vanLight.position.set(0, 1.8, 3.2); g.add(vanLight);
+      this.vanPos = new V3(t.x, y0 + 1.8, t.z - 3.2);
       // hazard lamp on the roof
       this.vanLamp = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xff9a2e, emissiveIntensity: 0 });
       box(this.vanLamp, 0, 2.28, -1.4, 0.3, 0.12, 0.3);
@@ -702,10 +819,10 @@
           const g = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffefb0 }));
           const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color: 0xffe9a0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
           halo.scale.set(0.9, 0.9, 0.9); g.add(halo);
-          const pl = new THREE.PointLight(0xffe2a0, 0.5, 3.5, 2); g.add(pl);
           return g;
         });
         m.position.set(o.x, o.y, o.z);
+        this.budget.request({ x: o.x, y: o.y, z: o.z, color: 0xffe2a0, intensity: 0.6, distance: 4, priority: 1.5 });
       }
       // optical distortions — only through the lens
       for (const d of tr.distort) {

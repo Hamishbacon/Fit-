@@ -19,7 +19,7 @@ button { font-family: var(--mono); }
 #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,.85) 100%); opacity: .4; }
 #condensation { position: absolute; inset: 0; opacity: 0; background:
   radial-gradient(circle at 20% 30%, rgba(200,210,205,.25), transparent 30%), radial-gradient(circle at 75% 70%, rgba(200,210,205,.22), transparent 28%), radial-gradient(circle at 60% 15%, rgba(200,210,205,.18), transparent 22%);
-  backdrop-filter: blur(1.5px); }
+  display: none; }
 #hideSlats { position: absolute; inset: 0; background: repeating-linear-gradient(180deg, rgba(5,5,5,.97) 0 34px, rgba(0,0,0,0) 34px 48px); }
 #lensView, #thermView { position: absolute; inset: 0; }
 #lensView .lv-frame { position: absolute; inset: 8% 10%; border: 1px solid rgba(255,216,77,.45); }

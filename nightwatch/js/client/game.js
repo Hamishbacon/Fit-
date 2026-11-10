@@ -17,14 +17,15 @@
       this.quality = S.quality || 'high';
       const canvas = document.getElementById('game');
       this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.quality !== 'low', powerPreference: 'high-performance' });
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.quality === 'high' ? 1.5 : this.quality === 'medium' ? 1 : 0.75));
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.quality === 'high' ? 2 : this.quality === 'medium' ? 1.25 : 1));
+      NW.Tex.setAnisotropy(Math.min(16, this.renderer.capabilities.getMaxAnisotropy()));
       this.renderer.setSize(innerWidth, innerHeight);
       this.renderer.outputEncoding = THREE.sRGBEncoding;
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
       this.renderer.toneMappingExposure = 1.15;
       this.renderer.shadowMap.enabled = this.quality !== 'low';
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      this.camera = new THREE.PerspectiveCamera(S.fov || 72, innerWidth / innerHeight, 0.04, 400);
+      this.camera = new THREE.PerspectiveCamera(S.fov || 72, innerWidth / innerHeight, 0.06, 400);
       this.input = new NW.Input(canvas);
       this.input.onLock = () => {};
       addEventListener('resize', () => { this.renderer.setSize(innerWidth, innerHeight); this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); this._postSize(); });
@@ -43,18 +44,28 @@
       try {
         const r = this.renderer;
         const hf = r.capabilities.isWebGL2 || r.extensions.has('OES_texture_half_float');
-        const rt = new THREE.WebGLRenderTarget(4, 4, { type: hf ? THREE.HalfFloatType : THREE.UnsignedByteType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+        const rtOpts = { type: hf ? THREE.HalfFloatType : THREE.UnsignedByteType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
+        let rt;
+        if (r.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget) { rt = new THREE.WebGLMultisampleRenderTarget(4, 4, rtOpts); rt.samples = this.quality === 'high' ? 4 : 2; }
+        else rt = new THREE.WebGLRenderTarget(4, 4, rtOpts);
         const comp = new THREE.EffectComposer(r, rt);
         const rp = new THREE.RenderPass(scene, this.camera); comp.addPass(rp);
         const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.5, 0.82); comp.addPass(bloom);
         const grade = new THREE.ShaderPass({
-          uniforms: { tDiffuse: { value: null }, exposure: { value: 1.15 }, raw: { value: 0 } },
+          uniforms: { tDiffuse: { value: null }, exposure: { value: 1.15 }, raw: { value: 0 }, sat: { value: 1 }, contrast: { value: 1 }, tint: { value: 0 } },
           vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-          fragmentShader: `uniform sampler2D tDiffuse; uniform float exposure; uniform float raw; varying vec2 vUv;
+          fragmentShader: `uniform sampler2D tDiffuse; uniform float exposure; uniform float raw; uniform float sat; uniform float contrast; uniform float tint; varying vec2 vUv;
             vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
             void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb;
-              if (raw < 0.5) { c = aces(c * exposure); c = pow(c, vec3(1.0/2.2)); }
-              gl_FragColor = vec4(c, 1.0); }`
+              if (raw < 0.5) {
+                c = aces(c * exposure); c = pow(c, vec3(1.0/2.2));
+                float l = dot(c, vec3(0.299, 0.587, 0.114));
+                c = mix(vec3(l), c, sat);
+                c = (c - 0.5) * contrast + 0.5;
+                c = mix(c, vec3(l * 1.08, l * 1.0, l * 0.82), tint * 0.6);
+                vec2 d = vUv - 0.5; c *= 1.0 - dot(d, d) * 0.55;
+              }
+              gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0); }`
         });
         comp.addPass(grade);
         r.toneMapping = THREE.NoToneMapping;
@@ -73,6 +84,8 @@
       if (!P) { this.renderer.render(this.scene, this.camera); return; }
       const thermal = this.effects && this.effects.thermal;
       P.grade.uniforms.raw.value = thermal ? 1 : 0;
+      const gr = this.effects && this.effects.grade;
+      if (gr) { P.grade.uniforms.sat.value = gr.sat; P.grade.uniforms.contrast.value = gr.contrast; P.grade.uniforms.tint.value = gr.tint; }
       P.bloom.enabled = !thermal;
       P.comp.render();
     }
@@ -142,6 +155,7 @@
       this.torch.target.position.set(0.05, -0.15, -4);
       this.camera.add(this.torch); this.camera.add(this.torch.target);
       if (this.quality !== 'low') { this.torch.castShadow = true; this.torch.shadow.mapSize.set(this.quality === 'high' ? 1024 : 512, this.quality === 'high' ? 1024 : 512); this.torch.shadow.camera.near = 0.2; this.torch.shadow.camera.far = 24; this.torch.shadow.bias = -0.0008; }
+      this.mateTorch = new THREE.SpotLight(0xffe6bf, 0, 16, 0.42, 0.5, 2); scene.add(this.mateTorch); scene.add(this.mateTorch.target);
       this.player = new NW.PlayerController(this);
       this.player.spawn(me);
       this.camera.position.set(me.x, me.y + 1.6, me.z);
@@ -149,6 +163,7 @@
       this.tutorial = this.tutorial || new NW.Tutorial(this);
       this.effects = new NW.Effects(this);
       this.entityView = new NW.EntityView(scene, this.state.entity.look);
+      this.atmo = new NW.Atmosphere(this);
       this.avatars = {};
       this.stepT = {}; this.entityStepT = 0;
       this.level.syncDoors(this.state, null);
@@ -173,6 +188,7 @@
       if (this.camera) { for (const c of this.camera.children.slice()) this.camera.remove(c); }
       this.inGame = false; this.state = null;
       if (this.tutorial) this.tutorial.stop();
+      if (this.atmo) { this.atmo.dispose(); this.atmo = null; }
       if (this.voice) { this.voice.stop(); this.voice = null; }
       if (this.mic) { if (this.mic.stream) this.mic.stream.getTracks().forEach((t) => t.stop()); this.mic = null; }
       NW.UI.exitGame();
@@ -287,6 +303,8 @@
         case 'swab': NW.UI.toast(e.residue ? 'Sample analysis: RESIDUE TRACE POSITIVE' : 'Sample analysis: inconclusive', e.residue ? 'good' : ''); break;
         case 'note': if (e.pid === this.myId) { const n = st.notes.find((x) => x.id === e.id); if (n) NW.UI.openNote(n); } else NW.UI.toast('A document was recovered.'); break;
         case 'item': if (e.dead && me && this.equip.held() && this.equip.held().id === e.id) NW.UI.toast('Battery depleted / no charges.'); break;
+        case 'device': { if (this.net.kind === 'remote' && st.devices[e.id]) st.devices[e.id].on = e.on; const dm = this.level.deviceMeshes[e.id]; if (dm) NW.Audio.play(e.on ? 'static' : 'click', dm.pos, 0.6, { d: 0.6 }); break; }
+        case 'relic': if (e.pid === this.myId) { NW.UI.subtitle(e.text, 5); NW.Audio.play('whisper', null, 0.9, { ui: true }); this.effects.onShock(6); } else NW.UI.toast(e.text.split('(')[0]); if (this.net.kind === 'remote' && e.ev) st.journal.ev[e.ev] = 2; break;
         case 'mission_end': this.endMission(e.result); break;
       }
     }
@@ -351,10 +369,14 @@
       // world sync
       this.level.syncDoors(st, null);
       this.level.animateDoors(dt);
+      this.level.budget.begin();
       this.level.updateLights(st, this.camera, dt, this.time);
       this.level.syncThrowables(st);
       this.level.animateThrowables(dt, (p) => NW.Audio.play('thud', p, 0.6));
       this.level.syncNotes(st);
+      this.level.syncDevices(st, this.time);
+      this._devT = (this._devT || 0) - dt;
+      if (this._devT <= 0) { this._devT = 1.2; for (const dm of this.level.deviceMeshes) if (st.devices[dm.dv.id] && st.devices[dm.dv.id].on && dm.pos.distanceTo(this.camera.position) < 14) NW.Audio.play('static', dm.pos, 0.45, { d: 1.15 }); }
       const held = this.equip.held();
       const uv = !!(held && held.type === 'samplekit' && held.on && me.alive);
       this.effects.setUV(uv);
@@ -378,6 +400,7 @@
       const outdoors = room >= 0 && this.world.rooms[room].outdoor;
       if (!this.effects.thermal) this.hemi.intensity += ((outdoors ? 0.55 : 0.14) - this.hemi.intensity) * Math.min(1, dt * 2);
       this.moon.intensity = outdoors ? 0.35 : 0.06;
+      this.atmo.update(dt, outdoors);
       NW.Audio.setRoomReverb(room >= 0 ? Math.min(1, this.world.rooms[room].area / 150) : 0.3);
       // remote players
       for (const id in st.players) {
@@ -400,6 +423,13 @@
       NW.Audio.setAmbienceLevel(st.entity.muffle && this.entityNear(this.camera.position, me.f, 7) ? 0.1 : 1);
       NW.Audio.tickAmbience(dt, this.camera.position, this.world.loc.id);
       NW.UI.updateHUD();
+      // one real spotlight for the nearest teammate whose torch is on
+      let best = null, bd = 30;
+      for (const id in this.avatars) { const av = this.avatars[id], p = st.players[id]; if (!p || !p.alive || !p.torch || p.hidden != null || !av.root.visible) continue; const d = av.root.position.distanceTo(this.camera.position); if (d < bd) { bd = d; best = av; } }
+      if (best) { best.torch.getWorldPosition(this.mateTorch.position); best.torchTarget.getWorldPosition(this.mateTorch.target.position); this.mateTorch.color.set(best.torchColor); this.mateTorch.intensity = 1.6; } else this.mateTorch.intensity = 0;
+      if (this.entityView.light && this.entityView.vis > 0.05) { const ep = this.entityView.root.position; this.level.budget.request({ x: ep.x, y: ep.y + 1.5, z: ep.z, color: 0xffe2a0, intensity: 1.3 * this.entityView.vis, distance: 7, priority: 4 }); }
+      this.level.updateVisibility(me.f, outdoors);
+      this.level.budget.end(this.camera);
       this._render();
       if (this._capture) {
         const meta = this._capture; this._capture = null;

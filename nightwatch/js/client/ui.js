@@ -257,6 +257,8 @@
           <li>Find the <b>entity's room</b>: cold readings, EM activity, sounds and disturbed objects cluster there.</li>
           <li>Use each instrument to test for evidence. Place motion nodes, slates and pressure monitors in active rooms and come back.</li>
           <li>Open the <b>tablet (TAB)</b>: mark evidence as confirmed or ruled out; the entity list narrows itself. Select your identification.</li>
+          <li>Every site hides a <b>relic</b> tied to the haunting. Using it (E) costs composure and may provoke a pursuit — but if it doesn't, it rules out one evidence type for you. Three uses.</li>
+          <li>Televisions, monitors and radios switch themselves on near the entity. Static is a sign it is close.</li>
           <li>When composure drops, the entity can begin a <b>pursuit</b>. The exit locks. Break line of sight, close doors, hide (<b>E</b> on lockers/wardrobes) — or use its weakness.</li>
           <li>Return to the Field Unit and choose <b>End investigation</b>. Correct identification and objectives pay research credits.</li></ol></div>
         <div class="panel"><h3>Controls</h3><div class="keys">

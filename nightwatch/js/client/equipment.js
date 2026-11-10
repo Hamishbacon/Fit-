@@ -147,9 +147,7 @@
       this.swab = null; // { trace, t }
       this.analysis = null; this.analysisText = '';
       this.radioText = ''; this.radioTextT = 0;
-      this.flash = new THREE.PointLight(0xf4f8ff, 0, 14, 2); game.camera.add(this.flash); this.flash.position.set(0, 0, -0.3);
-      this.elightPool = [0, 1].map(() => { const l = new THREE.PointLight(0xfff2d8, 0, 11, 1.6); game.scene.add(l); return l; });
-      this.beaconLight = new THREE.PointLight(0xff3c8a, 0, 8, 2); game.scene.add(this.beaconLight);
+      this.flash = { intensity: 0 };  // camera flash, rendered through the shared light budget
       this.lastSoundEvents = [];
       this.glitch = 0;
     }
@@ -185,8 +183,7 @@
       this.g.effects.setThermal(it && it.type === 'thermal' && it.on && this.raiseK > 0.7 && me.alive, this.thermalReading);
       // placed / dropped items in the world
       const live = new Set();
-      let elightIdx = 0; this.elightPool.forEach((l) => (l.intensity = 0));
-      this.beaconLight.intensity = 0;
+      const B = g.level.budget;
       for (const id in st.items) {
         const wi = st.items[id];
         if (wi.inTruck || wi.holder) continue;
@@ -201,12 +198,8 @@
         wm.group.position.set(wi.x, wi.y, wi.z); wm.group.rotation.set(0, wi.ry || 0, 0);
         if (!wi.placed && (wi.type === 'scanner' || wi.type === 'radio' || wi.type === 'thermal' || wi.type === 'recorder' || wi.type === 'lens')) wm.group.rotation.z = Math.PI / 2 * 0.98;
         this._drive(wi, wm, dt, t, false);
-        if (wi.type === 'elight' && wi.on && elightIdx < this.elightPool.length) {
-          const l = this.elightPool[elightIdx++];
-          l.position.set(wi.x, wi.y + 0.6, wi.z);
-          l.intensity = 2.2 * (wi.data.flickT > t ? (Math.random() > 0.5 ? 1 : 0.1) : 1) * Math.min(1, (wi.battery || 0) / 20 + 0.2);
-        }
-        if (wi.type === 'beacon' && wi.on) { this.beaconLight.position.set(wi.x, wi.y + 0.4, wi.z); this.beaconLight.intensity = 1 + Math.sin(t * 8) * 0.8; }
+        if (wi.type === 'elight' && wi.on) B.request({ x: wi.x, y: wi.y + 0.6, z: wi.z, color: 0xfff2d8, distance: 11, priority: 3, intensity: 2.2 * (wi.data.flickT > t ? (Math.random() > 0.5 ? 1 : 0.1) : 1) * Math.min(1, (wi.battery || 0) / 20 + 0.2) });
+        if (wi.type === 'beacon' && wi.on) B.request({ x: wi.x, y: wi.y + 0.4, z: wi.z, color: 0xff3c8a, distance: 8, priority: 3, intensity: 1 + Math.sin(t * 8) * 0.8 });
       }
       for (const id in this.worldModels) if (!live.has(id)) {
         const wm = this.worldModels[id]; g.scene.remove(wm.group);
@@ -214,7 +207,9 @@
         delete this.worldModels[id];
       }
       // held electronic light sources (e-light carried counts as light)
-      if (it && it.type === 'elight' && it.on && this.elightPool[elightIdx]) { const l = this.elightPool[elightIdx]; l.position.copy(g.camera.position); l.intensity = 1.6; }
+      const cp = g.camera.position;
+      if (it && it.type === 'elight' && it.on) B.request({ x: cp.x, y: cp.y - 0.3, z: cp.z, color: 0xfff2d8, intensity: 1.6, distance: 10, priority: 5 });
+      if (this.flash.intensity > 0.1) { const fw = new V3(0, 0, -1).applyQuaternion(g.camera.quaternion); B.request({ x: cp.x + fw.x * 0.4, y: cp.y + fw.y * 0.4, z: cp.z + fw.z * 0.4, color: 0xf4f8ff, intensity: this.flash.intensity, distance: 14, priority: 10 }); }
       // camera flash decay
       this.flash.intensity = Math.max(0, this.flash.intensity - dt * 120);
       // swab progress
