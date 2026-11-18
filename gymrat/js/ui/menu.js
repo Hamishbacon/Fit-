@@ -24,7 +24,7 @@ GR.Menu = (() => {
     let tp, tl;
     if (ms.mode === 'title') { tp = new THREE.Vector3(Math.sin(ms.t * 0.12) * 1.2, 1.5, 6.4); tl = new THREE.Vector3(0, 1.1, -1.3); }
     else if (ms.mode === 'select' && ms.focus != null) { const ch = ms.chars[ms.focus]; tp = ch.root.position.clone().add(new THREE.Vector3(0.9, 1.35, 3.0)); tl = ch.root.position.clone().add(new THREE.Vector3(0.45, 1.05, 0)); }
-    else if (ms.mode === 'create' && ms.editor) { const z = ms.zoom || 'body'; const tgt = ms.editor.root.position; const ang = ms.spin || 0; const d = z === 'face' ? 1.05 : 3.1, h = z === 'face' ? 1.68 : 1.15; tp = new THREE.Vector3(tgt.x + Math.sin(ang) * d + 0.35, h, tgt.z + Math.cos(ang) * d); tl = new THREE.Vector3(tgt.x + (z === 'face' ? 0.0 : 0.35), z === 'face' ? 1.64 : 1.0, tgt.z); }
+    else if (ms.mode === 'create' && ms.editor) { const z = ms.zoom || 'body'; const tgt = ms.editor.root.position; const ang = ms.spin || 0; const d = z === 'face' ? 1.45 : 3.1, h = z === 'face' ? 1.66 : 1.15, hs = (ms.editor.app.height || 1); tp = new THREE.Vector3(tgt.x + Math.sin(ang) * d + (z === 'face' ? 0.32 : 0.35), h * hs, tgt.z + Math.cos(ang) * d); tl = new THREE.Vector3(tgt.x + (z === 'face' ? 0.32 : 0.35), (z === 'face' ? 1.6 : 1.0) * hs, tgt.z); }
     else { tp = new THREE.Vector3(0, 1.5, 6.4); tl = new THREE.Vector3(0, 1.1, -1.3); }
     c.position.lerp(tp, 1 - Math.exp(-dt * 4)); ms.look = (ms.look || tl.clone()).lerp(tl, 1 - Math.exp(-dt * 4)); c.lookAt(ms.look);
     ms.chars.forEach(ch => ch.update(dt, { near: true })); if (ms.editor) ms.editor.update(dt, { near: true });
