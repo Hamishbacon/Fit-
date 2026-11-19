@@ -6,6 +6,7 @@ GR.Comp = (() => {
   const S = () => GR.state;
   let C = null; // active competition
   const wait = ms => new Promise(r => setTimeout(r, ms));
+  const assist = () => ({ relaxed: 1.4, normal: 1, hard: 0.75 })[(GR.Game.settings || {}).assist || 'relaxed'] || 1;
 
   /* ---------------- DRIP SCORE (fashion judging; also used by wardrobe + social) ---------------- */
   function pieces(outfit) { const out = []; ['top', 'bottom', 'shoes'].forEach(k => { const x = outfit[k]; if (x) { const it = D.item(x.id); if (it) out.push({ it, col: GR.Char.itemColor(it, x.c), main: true }); } }); Object.values(outfit.acc || {}).forEach(x => { const it = D.item(x.id); if (it) out.push({ it, col: GR.Char.itemColor(it, x.c), main: false }); }); return out; }
@@ -215,7 +216,7 @@ GR.Comp = (() => {
       const cv = document.getElementById('mini'); const cx = cv.getContext('2d'); cv.hidden = false; cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; cx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
       const t0 = performance.now(), dur = 1600 / (0.8 + C.diff * 0.4); let done = false;
       const fin = q => { if (done) return; done = true; off(); cx.clearRect(0, 0, innerWidth, innerHeight); cv.hidden = true; GR.Audio.sfx(q > 0.8 ? 'perfect' : q > 0.4 ? 'good' : 'miss'); resolve(q); };
-      const off = GR.Input.onKey(code => { if (code !== 'Space') return false; const k = (performance.now() - t0) / dur; const q = Math.max(0, 1 - Math.abs(k - 0.75) / 0.25); fin(q); return true; });
+      const off = GR.Input.onKey(code => { if (code !== 'Space') return false; const k = (performance.now() - t0) / dur; const q = Math.max(0, 1 - Math.abs(k - 0.75) / (0.25 * assist())); fin(q); return true; });
       const draw = () => { if (done) return; const k = (performance.now() - t0) / dur; if (k > 1.1) { fin(0); return; } const w = innerWidth, h = innerHeight; cx.clearRect(0, 0, w, h); cx.fillStyle = 'rgba(12,10,24,0.7)'; cx.beginPath(); cx.arc(w / 2, h * 0.7, 90, 0, 7); cx.fill(); cx.strokeStyle = '#2ecc71'; cx.lineWidth = 8; cx.beginPath(); cx.arc(w / 2, h * 0.7, 40, 0, 7); cx.stroke(); cx.strokeStyle = '#ffd23f'; cx.lineWidth = 6; cx.beginPath(); cx.arc(w / 2, h * 0.7, Math.max(4, 40 + (0.75 - k) * 160), 0, 7); cx.stroke(); cx.fillStyle = '#fff'; cx.font = '700 16px Rubik'; cx.textAlign = 'center'; cx.fillText(label, w / 2, h * 0.7 - 110); cx.fillText('SPACE when the rings meet', w / 2, h * 0.7 + 118); requestAnimationFrame(draw); };
       draw();
     });
@@ -225,12 +226,12 @@ GR.Comp = (() => {
       const cv = document.getElementById('mini'); const cx = cv.getContext('2d'); cv.hidden = false; cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; cx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
       const keys = lanes === 4 ? ['ArrowLeft', 'ArrowDown', 'ArrowUp', 'ArrowRight'] : ['KeyA', 'KeyD'], glyph = lanes === 4 ? ['◀', '▼', '▲', '▶'] : ['A', 'D'];
       const beat = 60 / bpm, notes = []; let t = -2, spawn = 0, hits = 0, judged = 0, acc = 0, combo = 0, maxCombo = 0, holdsOk = 0, holdsN = 0, fx = [], last = performance.now(), done = false;
-      for (let b = 0; b < dur / beat; b++) { const tt = b * beat; if (Math.random() < 0.75 || b % 2 === 0) { const hold = lanes === 4 && Math.random() < 0.08; notes.push({ t: tt, lane: Math.floor(Math.random() * lanes), hold, done: false }); if (hold) holdsN++; } }
+      for (let b = 0; b < dur / beat; b++) { const tt = b * beat; if (b % 2 === 0 || Math.random() < 0.3) { const hold = lanes === 4 && Math.random() < 0.08; notes.push({ t: tt, lane: Math.floor(Math.random() * lanes), hold, done: false }); if (hold) holdsN++; } }
       const judge = (q) => { judged++; if (q > 0) { hits++; combo++; maxCombo = Math.max(maxCombo, combo); acc += q; } else combo = 0; fx.push({ t: 0, txt: q >= 1 ? 'PERFECT' : q > 0.6 ? 'GREAT' : q > 0 ? 'OK' : 'MISS', c: q >= 1 ? '#5ff0ff' : q > 0.6 ? '#7cff6b' : q > 0 ? '#ffd23f' : '#ff5a5a' }); GR.Audio.sfx(q >= 1 ? 'perfect' : q > 0 ? 'good' : 'miss'); if (q >= 1 && combo % 8 === 0) GR.NPC.crowdReact('cheer'); };
-      const off = GR.Input.onKey((code, e) => { const li = keys.indexOf(code); if (li < 0) return false; if (e.repeat) return true; let best = null, bd = 0.2; notes.forEach(n => { if (n.done || n.lane !== li) return; const d = Math.abs(n.t - t); if (d < bd) { bd = d; best = n; } }); if (best) { best.done = true; const q = bd < 0.05 ? 1 : bd < 0.1 ? 0.75 : 0.45; judge(q); if (best.hold) holdsOk++; } else judge(0); return true; });
+      const off = GR.Input.onKey((code, e) => { const li = keys.indexOf(code); if (li < 0) return false; if (e.repeat) return true; const A = assist(); let best = null, bd = 0.2 * A; notes.forEach(n => { if (n.done || n.lane !== li) return; const d = Math.abs(n.t - t); if (d < bd) { bd = d; best = n; } }); if (best) { best.done = true; const q = bd < 0.06 * A ? 1 : bd < 0.12 * A ? 0.75 : 0.45; judge(q); if (best.hold) holdsOk++; } else judge(0); return true; });
       const draw = () => {
         if (done) return; const now = performance.now(), dt = (now - last) / 1000; last = now; t += dt;
-        notes.forEach(n => { if (!n.done && t - n.t > 0.2) { n.done = true; judge(0); } });
+        notes.forEach(n => { if (!n.done && t - n.t > 0.2 * assist()) { n.done = true; judge(0); } });
         const w = innerWidth, h = innerHeight, lw = 80, lx = w / 2 - lanes * lw / 2, top = h * 0.15, hit = h * 0.8, speed = (hit - top) / 1.6;
         cx.clearRect(0, 0, w, h); cx.fillStyle = 'rgba(12,10,24,0.65)'; cx.fillRect(lx - 10, top - 30, lanes * lw + 20, hit - top + 90);
         for (let i = 0; i < lanes; i++) { cx.fillStyle = ['#ff4fa333', '#28e0ff33', '#7cff6b33', '#ffd23f33'][i]; cx.fillRect(lx + i * lw + 4, top, lw - 8, hit - top + 30); cx.fillStyle = '#fff'; cx.font = '900 26px Rubik'; cx.textAlign = 'center'; cx.fillText(glyph[i], lx + i * lw + lw / 2, hit + 62); }

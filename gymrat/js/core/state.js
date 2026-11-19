@@ -59,7 +59,7 @@ GR.Save = (() => {
   }
   function autosave(s) { if (performance.now() - lastSave > 4000) save(s); else { clearTimeout(pending); pending = setTimeout(() => save(s), 4000); } }
   function del(i) { store.del(KEY + i); store.del(KEY + i + '_bak'); delete mem[KEY + i]; }
-  const DEFAULT_SET = { quality: 'auto', resScale: 1, music: 0.55, sfx: 0.8, dialogue: 0.8, mute: false, sens: 1, invertY: false, fov: 60, fps: false, fullscreen: false, keys: { forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', jump: 'Space', interact: 'KeyE', phone: 'KeyF', inventory: 'KeyI', emote: 'KeyB', map: 'KeyM', pause: 'Escape', camera: 'KeyC' }, shadows: true, bloom: true, mirrors: true, npcDensity: 1, hints: true };
+  const DEFAULT_SET = { quality: 'auto', resScale: 1, music: 0.55, sfx: 0.8, dialogue: 0.8, mute: false, sens: 1, invertY: false, fov: 60, fps: false, fullscreen: false, keys: { forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', jump: 'Space', interact: 'KeyE', phone: 'KeyF', inventory: 'KeyI', emote: 'KeyB', map: 'KeyM', pause: 'Escape', camera: 'KeyC' }, shadows: true, bloom: true, mirrors: true, npcDensity: 1, hints: true, assist: 'relaxed' };
   function settings() { let s = {}; try { s = JSON.parse(store.get(SET) || '{}'); } catch (e) { } return deepFill(s, DEFAULT_SET); }
   function saveSettings(s) { store.set(SET, JSON.stringify(s)); }
   return { fresh, load, save, autosave, del, slotInfo, meta, settings, saveSettings, DEFAULT_SET };

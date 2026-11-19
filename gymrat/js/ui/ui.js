@@ -239,11 +239,13 @@ GR.UI = (() => {
         <button class="btn" id="s_full">${document.fullscreenElement ? '🗗 Windowed' : '⛶ Fullscreen'}</button>
         <h3>Audio</h3>
         <label>Music <input id="s_mu" type="range" min="0" max="1" step="0.05" value="${st.music}"></label><label>Sound effects <input id="s_sf" type="range" min="0" max="1" step="0.05" value="${st.sfx}"></label><label>Dialogue voices <input id="s_dl" type="range" min="0" max="1" step="0.05" value="${st.dialogue}"></label><label><input type="checkbox" id="s_mute" ${st.mute ? 'checked' : ''}> Mute all</label>
+        <h3>Minigames</h3><label>Timing windows <select id="s_as">${['relaxed', 'normal', 'hard'].map(a => `<option ${st.assist === a ? 'selected' : ''}>${a}</option>`).join('')}</select></label><p class="muted">Relaxed gives every workout, dance and basketball shot a wider timing window.</p>
         <h3>Controls</h3>
         <label>Mouse sensitivity <input id="s_sens" type="range" min="0.3" max="2.5" step="0.1" value="${st.sens}"><span>${st.sens}</span></label><label><input type="checkbox" id="s_inv" ${st.invertY ? 'checked' : ''}> Invert camera Y</label>
         <div class="binds">${GR.Input.ACTIONS.map(a => `<div><span>${GR.Input.LABEL[a]}</span><button class="bind" data-a="${a}">${GR.Input.keyName(st.keys[a])}</button></div>`).join('')}</div>
         <button class="btn" id="s_reset">Reset controls to default</button></div>`;
       const q = id => p.querySelector(id);
+      q('#s_as').onchange = e => { st.assist = e.target.value; save(); };
       q('#s_q').onchange = e => { st.quality = e.target.value; GR.Game.applyQuality(GR.Game.resolveQuality(st.quality)); save(); render(); };
       const rng = (id, key, fn) => { q(id).oninput = e => { st[key] = +e.target.value; if (e.target.nextElementSibling) e.target.nextElementSibling.textContent = key === 'fov' ? st[key] + '°' : key === 'sens' ? st[key] : Math.round(st[key] * 100) + '%'; fn && fn(); save(); }; };
       rng('#s_rs', 'resScale', () => GR.Game.applyQuality(GR.Game.quality)); rng('#s_npc', 'npcDensity', () => GR.NPC.setDensity(st.npcDensity)); rng('#s_fov', 'fov'); rng('#s_sens', 'sens');

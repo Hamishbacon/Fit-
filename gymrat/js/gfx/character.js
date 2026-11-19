@@ -306,16 +306,31 @@ GR.Char = (() => {
       if (kind === 'retro' || kind === 'runner') add(G.box(0.1, 0.012, 0.06), accM, 0, -0.068 + soleH, 0.12).scale.set(0.98, 1, 1);
       return g;
     }
-    buildAcc(it, hex, put) {
+    /** find the outer surface of the clothed body (chest + neck meshes) along a ray given in chest-local space */
+    surfHit(origin, dir, lift = 0.01) {
+      const J = this.j; this.root.updateMatrixWorld(true);
+      const meshes = []; [J.chest, J.neck, J.spine].forEach(j => j.children.forEach(m => { if (m.isMesh && m.visible && !m.userData.acc) meshes.push(m); }));
+      const ray = this._ray || (this._ray = new THREE.Raycaster());
+      const wo = origin.clone().applyMatrix4(J.chest.matrixWorld), wd = dir.clone().normalize().transformDirection(J.chest.matrixWorld);
+      ray.set(wo, wd); ray.near = 0; ray.far = 2;
+      const h = ray.intersectObjects(meshes, false)[0]; if (!h) return null;
+      return J.chest.worldToLocal(h.point.clone().addScaledVector(wd, -lift));
+    }
+    // radial hit around the neck axis at height y (angle 0 = front)
+    surfRing(y, a, lift = 0.01) { return this.surfHit(V(Math.sin(a) * 0.7, y, Math.cos(a) * 0.7), V(-Math.sin(a), 0, -Math.cos(a)), lift); }
+    buildAcc(it, hex, put0) {
+      const put = (...args) => { const m = put0(...args); m.userData.acc = true; return m; };
       const J = this.j, d = this.d, S = this.headParts.S, k = it.kind;
       const mm = it.colors.length && ['#e8c45a', '#d9d9de', '#c48b6a', '#e6f3ff'].includes(hex) || ['chain_cuban', 'chain_rope', 'chain_pendant', 'watch_classic', 'bracelet_cuff', 'ring_band', 'ring_signet', 'crown'].includes(k) ? this.track(metalMat(hex)) : this.track(plastic(hex, 0.45));
       const neckY = 0.29, nr = d.neckR;
       const topK = this.outfit.top ? (TOP[(D.item(this.outfit.top.id) || {}).kind] || {}).off || 0 : 0;
       if (k.startsWith('chain')) {
-        const pts = []; for (let i = 0; i <= 24; i++) { const a = i / 24 * U.TAU; const front = Math.max(0, Math.cos(a)); pts.push(V(Math.sin(a) * (nr + 0.03), neckY - 0.02 - front * front * (k === 'chain_pendant' ? 0.1 : 0.07), Math.cos(a) * (nr + 0.025) + front * (d.chestRz - nr + topK + 0.002) * 0.9)); }
-        if (k === 'chain_beads') pts.forEach((p, i) => { if (i % 1 === 0 && i < 24) put(G.sphere(0.009, 6, 4), mm, J.chest).position.copy(p); });
-        else put(G.tube(pts, k === 'chain_cuban' ? 0.0075 : 0.0045, 5, 48, true), mm, J.chest, false);
-        if (k === 'chain_pendant') { const pd = put(G.merge([[G.cyl(0.005, 0.005, 0.05, 6), G.M.trs(0, 0, 0, 0, 0, Math.PI / 2)], [G.cyl(0.014, 0.014, 0.012, 10), G.M.trs(0.025, 0, 0, 0, 0, Math.PI / 2)], [G.cyl(0.014, 0.014, 0.012, 10), G.M.trs(-0.025, 0, 0, 0, 0, Math.PI / 2)]]), mm, J.chest); pd.position.copy(pts[0]).add(V(0, -0.025, 0.008)); }
+        // the chain drapes over whatever is actually there (skin, tee, hoodie, puffer, any muscle size)
+        const pts = []; for (let i = 0; i < 24; i++) { const a = i / 24 * U.TAU; const front = Math.max(0, Math.cos(a)); const y = neckY - 0.005 - front * front * (k === 'chain_pendant' ? 0.11 : 0.08); const hp = this.surfRing(y, a, 0.01); pts.push(hp || V(Math.sin(a) * (nr + 0.03), y, Math.cos(a) * (nr + 0.025) + front * (d.chestRz - nr + topK) * 0.9)); }
+        pts.forEach((pp, i) => { const q = pts[(i + 1) % 24], r0 = pts[(i + 23) % 24]; pp.lerp(q.clone().add(r0).multiplyScalar(0.5), 0.25); });
+        if (k === 'chain_beads') pts.forEach(p => put(G.sphere(0.011, 6, 4), mm, J.chest).position.copy(p));
+        else put(G.tube(pts, k === 'chain_cuban' ? 0.009 : 0.0055, 5, 48, true), mm, J.chest, false);
+        if (k === 'chain_pendant') { const pd = put(G.merge([[G.cyl(0.005, 0.005, 0.05, 6), G.M.trs(0, 0, 0, 0, 0, Math.PI / 2)], [G.cyl(0.014, 0.014, 0.012, 10), G.M.trs(0.025, 0, 0, 0, 0, Math.PI / 2)], [G.cyl(0.014, 0.014, 0.012, 10), G.M.trs(-0.025, 0, 0, 0, 0, Math.PI / 2)]]), mm, J.chest); const fp = this.surfHit(V(0, pts[0].y - 0.035, 0.7), V(0, 0, -1), 0.018); pd.position.copy(fp || pts[0].clone().add(V(0, -0.03, 0.01))); }
       } else if (k.startsWith('watch') || k.startsWith('bracelet')) {
         const left = k.startsWith('watch'); const fore = J[left ? 'lFore' : 'rFore'];
         const sleeve = this.outfit.top && (TOP[(D.item(this.outfit.top.id) || {}).kind] || {}).fore ? 0.012 : 0;
@@ -353,15 +368,25 @@ GR.Char = (() => {
         else if (k === 'crown') { addG(G.cyl(0.8, 0.82, 0.35, 20, true), mm, 0, 0.6, 0, -0.1).material.side = THREE.DoubleSide; for (let i = 0; i < 8; i++) { const a = i / 8 * U.TAU; addG(G.cyl(0, 0.12, 0.3, 4), mm, Math.sin(a) * 0.78, 0.92, Math.cos(a) * 0.78, -0.1); addG(G.sphere(0.07, 6, 4), this.track(plastic(['#ef4444', '#3b82f6', '#10b981'][i % 3], 0.1)), Math.sin(a) * 0.82, 0.62, Math.cos(a) * 0.82); } }
       } else if (k.startsWith('bag')) {
         const big = k === 'bag_school' || k === 'bag_gym';
-        const bag = put(G.rbox(big ? 0.28 : 0.2, big ? 0.36 : 0.24, big ? 0.13 : 0.09, 0.04, 2), mm, J.chest); bag.position.set(0, 0.08, -(d.chestRz + topK + (big ? 0.07 : 0.05)));
+        const bd = big ? 0.13 : 0.09, back = this.surfHit(V(0, 0.08, -0.7), V(0, 0, 1), 0) || V(0, 0.08, -(d.chestRz + topK));
+        const bag = put(G.rbox(big ? 0.28 : 0.2, big ? 0.36 : 0.24, bd, 0.04, 2), mm, J.chest); bag.position.set(0, 0.08, back.z - bd / 2 + 0.012);
         const pocket = put(G.rbox(big ? 0.2 : 0.14, 0.1, 0.04, 0.015, 1), this.track(plastic(U.shade(hex, -0.2), 0.6)), J.chest); pocket.position.set(0, big ? -0.02 : 0.02, bag.position.z - (big ? 0.075 : 0.055));
         const strap = this.track(plastic('#222', 0.8));
-        for (const s of [1, -1]) { const pts = [V(s * 0.08, 0.2, bag.position.z + 0.02), V(s * 0.1, 0.3, 0), V(s * 0.1, 0.22, d.chestRz + topK + 0.01), V(s * 0.11, 0.02, d.chestRz + topK + 0.005), V(s * 0.1, -0.05, bag.position.z + 0.03)]; put(G.tube(pts, 0.01, 4, 20), strap, J.chest); }
+        for (const s of [1, -1]) {
+          const sx = s * (d.neckR + 0.045);
+          const top = this.surfHit(V(sx, 0.8, 0), V(0, -1, 0), 0.012), f1 = this.surfHit(V(sx * 1.05, 0.2, 0.7), V(0, 0, -1), 0.012), f2 = this.surfHit(V(sx * 1.2, 0.02, 0.7), V(0, 0, -1), 0.012), b1 = this.surfHit(V(sx, 0.22, -0.7), V(0, 0, 1), 0.012);
+          const pts = [V(s * 0.08, 0.2, bag.position.z + bd / 2 - 0.01), b1 || V(sx, 0.24, -(d.chestRz + topK)), top || V(sx, 0.32, 0), f1 || V(sx, 0.2, d.chestRz + topK), f2 || V(sx * 1.2, 0.02, d.chestRz + topK), V(s * 0.12, -0.05, bag.position.z + bd / 2 - 0.01)];
+          put(G.tube(pts, 0.011, 4, 24), strap, J.chest);
+        }
       } else if (k.startsWith('phones')) {
         const onHead = k === 'phones_head';
         const cupM = mm, padM = this.track(plastic('#1d1d1f', 0.9));
-        if (onHead) { const grp = new THREE.Group(); grp.userData.flat = true; S.add(grp); this.clothMeshes.push(grp); const band = new THREE.Mesh(this.track(G.torus(1.12, 0.06, 6, 24, Math.PI)), cupM); band.position.y = 0.0; band.rotation.z = 0; grp.add(band); grp.position.set(0, 0.05, -0.04); for (const s of [1, -1]) { const cup = new THREE.Mesh(this.track(G.cyl(0.32, 0.32, 0.18, 16)), cupM); cup.rotation.z = Math.PI / 2; cup.position.set(s * 1.12, 0, 0); grp.add(cup); const pad = new THREE.Mesh(this.track(G.cyl(0.28, 0.28, 0.08, 16)), padM); pad.rotation.z = Math.PI / 2; pad.position.set(s * 1.0, 0, 0); grp.add(pad); } }
-        else { const pts = []; for (let i = 0; i <= 12; i++) { const a = Math.PI * 0.5 + i / 12 * Math.PI; pts.push(V(Math.cos(a) * (nr + 0.045), neckY + 0.02, Math.sin(a) * -(nr + 0.04))); } put(G.tube(pts, 0.008, 4, 16), cupM, J.chest); for (const s of [1, -1]) { const cup = put(G.cyl(0.04, 0.04, 0.025, 14), cupM, J.chest); cup.position.set(s * (nr + 0.05), neckY + 0.01, 0.035); cup.rotation.set(Math.PI / 2 - 0.3, 0, s * 0.5); } }
+        if (onHead) { const grp = new THREE.Group(); grp.userData.flat = true; S.add(grp); this.clothMeshes.push(grp); const hb = ['afro', 'puffs', 'hightop', 'curlymid'].includes((D.HAIR.find(h => h.id === this.app.hair) || {}).type) ? 1.35 : 1.12; const band = new THREE.Mesh(this.track(G.torus(1.12, 0.06, 6, 24, Math.PI)), cupM); band.scale.y = hb / 1.12 * 1.15; band.position.y = 0.0; band.rotation.z = 0; grp.add(band); grp.position.set(0, 0.05, -0.04); for (const s of [1, -1]) { const cup = new THREE.Mesh(this.track(G.cyl(0.32, 0.32, 0.18, 16)), cupM); cup.rotation.z = Math.PI / 2; cup.position.set(s * 1.12, 0, 0); grp.add(cup); const pad = new THREE.Mesh(this.track(G.cyl(0.28, 0.28, 0.08, 16)), padM); pad.rotation.z = Math.PI / 2; pad.position.set(s * 1.0, 0, 0); grp.add(pad); } }
+        else {
+          const y = neckY + 0.015, pts = []; for (let i = 0; i <= 12; i++) { const a = Math.PI / 2 + 0.25 + i / 12 * (Math.PI - 0.5); pts.push(this.surfRing(y, a, 0.012) || V(Math.sin(a) * (nr + 0.045), y, Math.cos(a) * (nr + 0.04))); }
+          put(G.tube(pts, 0.009, 4, 16), cupM, J.chest);
+          for (const s of [1, -1]) { const a = s * 1.05, sp = this.surfRing(y - 0.01, a, 0.04) || V(s * (nr + 0.05), y, 0.035); const cup = put(G.cyl(0.052, 0.052, 0.032, 14), cupM, J.chest); cup.position.copy(sp); cup.rotation.set(Math.PI / 2 - 0.35, 0, -a * 0.9); cup.rotateX(0); const pad = put(G.cyl(0.034, 0.034, 0.03, 14), padM, J.chest); pad.position.copy(sp).add(V(-Math.sin(a) * 0.012, 0, -Math.cos(a) * 0.012)); pad.rotation.copy(cup.rotation); }
+        }
       }
     }
     // ---------- props held in hands (phone, dumbbells, mic, trophy, ball) ----------
