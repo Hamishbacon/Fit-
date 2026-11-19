@@ -35,17 +35,19 @@ GR.Char = (() => {
 
   // --- body dimensions --------------------------------------------------------------------------------------------
   function dims(app) {
-    const b = app.build ?? 0.5, s = app.shoulders ?? 0.5, m = app.muscle ?? 0.2, L = 0.95 + (app.legs ?? 0.5) * 0.1;
+    const b = app.build ?? 0.5, s = app.shoulders ?? 0.5, m0 = app.muscle ?? 0.2, L = 0.95 + (app.legs ?? 0.5) * 0.1;
+    const M = app.mus || {}, g = k => U.clamp(M[k] ?? m0, 0, 1);
+    const mc = g('chest'), ma = g('arms'), mb = g('back'), ms = g('shoulders'), ml = g('legs'), mk = g('core'), m = (mc + ma + mb + ms + ml + mk) / 6;
     return {
-      b, s, m, L,
+      b, s, m, L, mc, ma, mb, ms, ml, mk,
       thigh: 0.42 * L, shin: 0.41 * L, ankle: 0.075,
       hipRx: 0.145 + b * 0.035, hipRz: 0.105 + b * 0.025,
-      waistRx: 0.12 + b * 0.05 - m * 0.006, waistRz: 0.09 + b * 0.055,
-      chestRx: 0.15 + s * 0.035 + m * 0.035 + b * 0.02, chestRz: 0.1 + m * 0.032 + b * 0.035,
-      shX: 0.17 + s * 0.045 + m * 0.025 + b * 0.015,
-      armR: 0.039 + m * 0.024 + b * 0.01, foreR: 0.034 + m * 0.014 + b * 0.006,
-      thighR: 0.072 + m * 0.022 + b * 0.025, shinR: 0.05 + m * 0.014 + b * 0.012,
-      neckR: 0.048 + m * 0.018 + b * 0.008,
+      waistRx: 0.12 + b * 0.05 - mk * 0.012 + ml * 0.004, waistRz: 0.09 + b * 0.055 - mk * 0.008,
+      chestRx: 0.15 + s * 0.035 + mc * 0.03 + mb * 0.055 + b * 0.02, chestRz: 0.1 + mc * 0.06 + mb * 0.015 + b * 0.035,
+      shX: 0.17 + s * 0.045 + ms * 0.06 + mb * 0.02 + b * 0.015,
+      armR: 0.037 + ma * 0.05 + ms * 0.008 + b * 0.01, foreR: 0.033 + ma * 0.024 + b * 0.006,
+      thighR: 0.07 + ml * 0.048 + b * 0.025, shinR: 0.049 + ml * 0.026 + b * 0.012,
+      neckR: 0.047 + (ms + mb) * 0.016 + b * 0.008, delt: 1 + ms * 0.35,
       up: 0.29, fore: 0.255
     };
   }
@@ -63,11 +65,11 @@ GR.Char = (() => {
     };
   }
   // muscle sculpt displacement
-  const dispPecs = m => (a, t) => (Math.abs(a) < 1.1 ? Math.exp(-((t - 0.38) ** 2) / 0.02) * Math.cos(a * 1.4) ** 2 * m * 0.09 : 0) + (Math.abs(Math.abs(a) - Math.PI) < 1 ? Math.exp(-((t - 0.3) ** 2) / 0.03) * m * 0.05 : 0);
-  const dispBicep = m => (a, t) => Math.exp(-((t - 0.42) ** 2) / 0.03) * Math.max(0, Math.cos(a)) * m * 0.22 + Math.exp(-((t - 0.1) ** 2) / 0.01) * m * 0.08;
-  const dispQuad = m => (a, t) => Math.exp(-((t - 0.45) ** 2) / 0.05) * Math.max(0, Math.cos(a)) * m * 0.12;
-  const dispCalf = m => (a, t) => Math.exp(-((t - 0.28) ** 2) / 0.02) * Math.max(0, -Math.cos(a)) * (0.06 + m * 0.12);
-  const dispAbs = m => (a, t) => Math.abs(a) < 0.6 ? Math.sin(t * 12) * 0.01 * m : 0;
+  const dispPecs = (m, mb = m) => (a, t) => (Math.abs(a) < 1.1 ? Math.exp(-((t - 0.4) ** 2) / 0.02) * Math.cos(a * 1.4) ** 2 * m * 0.2 : 0) + (Math.abs(Math.abs(a) - Math.PI) < 1.3 ? Math.exp(-((t - 0.3) ** 2) / 0.04) * mb * 0.12 : 0) + (Math.abs(Math.abs(a) - Math.PI / 2) < 0.6 ? Math.exp(-((t - 0.45) ** 2) / 0.05) * mb * 0.1 : 0);
+  const dispBicep = m => (a, t) => Math.exp(-((t - 0.45) ** 2) / 0.025) * Math.max(0, Math.cos(a)) * m * 0.5 + Math.exp(-((t - 0.5) ** 2) / 0.04) * Math.max(0, -Math.cos(a)) * m * 0.22 + Math.exp(-((t - 0.1) ** 2) / 0.012) * m * 0.18;
+  const dispQuad = m => (a, t) => Math.exp(-((t - 0.5) ** 2) / 0.05) * Math.max(0, Math.cos(a)) * m * 0.26 + Math.exp(-((t - 0.65) ** 2) / 0.02) * Math.max(0, Math.cos(a + 0.8)) * m * 0.12;
+  const dispCalf = m => (a, t) => Math.exp(-((t - 0.28) ** 2) / 0.02) * Math.max(0, -Math.cos(a)) * (0.06 + m * 0.28);
+  const dispAbs = m => (a, t) => Math.abs(a) < 0.7 ? (Math.max(0, Math.sin(t * 15)) * 0.05 * m - Math.exp(-(a * a) / 0.004) * 0.03 * m) * (t < 0.85 ? 1 : 0) : 0;
 
   // --- clothing specs --------------------------------------------------------------------------------------------------
   const TOP = {
@@ -141,16 +143,16 @@ GR.Char = (() => {
       // skin body
       this.skinMeshes = {};
       this.skinMeshes.pelvis = addM(G.sweep({ len: 0.2, segU: sU, segV: sV, prof: pr.pelvis, capTop: false, capK: 3 }), mats.skin, hips); this.skinMeshes.pelvis.position.y = 0.08;
-      this.skinMeshes.abd = addM(G.sweep({ len: 0.3, segU: sU, segV: sV, prof: pr.abd, disp: dispAbs(d.m), capTop: false, capBot: false }), mats.skin, spine); this.skinMeshes.abd.position.y = 0.24;
-      this.skinMeshes.chest = addM(G.sweep({ len: 0.34, segU: sU + 4, segV: sV + 2, prof: pr.chest, disp: dispPecs(d.m), capBot: false, capScale: 0.45 }), mats.skin, chest); this.skinMeshes.chest.position.y = 0.3;
+      this.skinMeshes.abd = addM(G.sweep({ len: 0.3, segU: sU, segV: sV, prof: pr.abd, disp: dispAbs(d.mk), capTop: false, capBot: false }), mats.skin, spine); this.skinMeshes.abd.position.y = 0.24;
+      this.skinMeshes.chest = addM(G.sweep({ len: 0.34, segU: sU + 4, segV: sV + 2, prof: pr.chest, disp: dispPecs(d.mc, d.mb), capBot: false, capScale: 0.45 }), mats.skin, chest); this.skinMeshes.chest.position.y = 0.3;
       this.skinMeshes.neck = addM(G.sweep({ len: 0.16, segU: 12, segV: 3, prof: () => [d.neckR, d.neckR * 1.05, 0, 0.004], capTop: false, capBot: false }), mats.skin, neck); this.skinMeshes.neck.position.y = 0.12;
       for (const s of [1, -1]) {
         const p = s > 0 ? 'l' : 'r';
-        this.skinMeshes[p + 'Up'] = addM(G.sweep({ len: d.up, segU: 14, segV: sV, prof: pr.up, disp: dispBicep(d.m) }), mats.skin, J[p + 'Arm']);
-        addM(G.sphere(d.armR * 1.25, 12, 10), mats.skin, J[p + 'Arm']).position.set(s * 0.008, 0, 0);
+        this.skinMeshes[p + 'Up'] = addM(G.sweep({ len: d.up, segU: 14, segV: sV, prof: pr.up, disp: dispBicep(d.ma) }), mats.skin, J[p + 'Arm']);
+        const delt = addM(G.sphere(d.armR * 1.25, 12, 10), mats.skin, J[p + 'Arm']); delt.position.set(s * 0.008 * d.delt, -0.01 * d.delt, 0); delt.scale.set(d.delt, 1 + (d.delt - 1) * 0.6, d.delt * 0.95);
         this.skinMeshes[p + 'Fore'] = addM(G.sweep({ len: d.fore, segU: 12, segV: sV, prof: pr.fore }), mats.skin, J[p + 'Fore']);
-        this.skinMeshes[p + 'Thigh'] = addM(G.sweep({ len: d.thigh, segU: 16, segV: sV, prof: pr.thigh, disp: dispQuad(d.m) }), mats.skin, J[p + 'Thigh']);
-        this.skinMeshes[p + 'Shin'] = addM(G.sweep({ len: d.shin, segU: 14, segV: sV, prof: pr.shin, disp: dispCalf(d.m) }), mats.skin, J[p + 'Shin']);
+        this.skinMeshes[p + 'Thigh'] = addM(G.sweep({ len: d.thigh, segU: 16, segV: sV, prof: pr.thigh, disp: dispQuad(d.ml) }), mats.skin, J[p + 'Thigh']);
+        this.skinMeshes[p + 'Shin'] = addM(G.sweep({ len: d.shin, segU: 14, segV: sV, prof: pr.shin, disp: dispCalf(d.ml) }), mats.skin, J[p + 'Shin']);
         addM(G.sphere(d.thighR * 0.66, 10, 8), mats.skin, J[p + 'Shin']);
         this.buildHand(s, J[p + 'Hand'], mats, addM);
       }
@@ -210,7 +212,7 @@ GR.Char = (() => {
         const sp = TOP[topI.kind] || TOP.tee, hex = itemColor(topI, o.top.c);
         const mt = this.track(clothMat(topI, hex, 'torso')), mtl = this.track(clothMat(topI, hex, 'torsoLow')), ms = this.track(clothMat(topI, hex, 'sleeve'));
         const k = sp.off;
-        put(G.sweep({ len: 0.34, segU: 24, segV: 8, prof: off(pr.chest, k * (sp.puffy ? 1.2 : 1)), disp: dispPecs(d.m * 0.6), capBot: false, capScale: 0.5 }), mt, J.chest).position.y = 0.3 + k * 0.4;
+        put(G.sweep({ len: 0.34, segU: 24, segV: 8, prof: off(pr.chest, k * (sp.puffy ? 1.2 : 1)), disp: dispPecs(d.mc, d.mb), capBot: false, capScale: 0.5 }), mt, J.chest).position.y = 0.3 + k * 0.4;
         const abdLen = 0.3 + sp.len * 0.25;
         put(G.sweep({ len: abdLen, segU: 24, segV: 6, prof: t => { const tt = Math.min(1, t * abdLen / 0.3); const p = tt < 1 ? pr.abd(tt) : pr.pelvis(Math.min(1, (t * abdLen - 0.3) / 0.2)); return [p[0] + k + (sp.drop || 0) * t, p[1] + k + (sp.drop || 0) * t * 0.6, 0, p[3]]; }, capTop: false, capBot: false }), mtl, J.spine).position.y = 0.24;
         this.skinMeshes.chest.visible = !!(topI.kind === 'tank' || topI.kind === 'singlet' || topI.kind === 'jersey'); this.skinMeshes.abd.visible = false;
@@ -220,8 +222,8 @@ GR.Char = (() => {
           const p = s > 0 ? 'l' : 'r';
           if (sp.sl > 0) {
             const w = sp.slw || 1, slen = d.up * sp.sl * (sp.slw ? 1.05 : 1);
-            put(G.sweep({ len: slen, segU: 14, segV: 4, prof: t => { const pp = pr.up(t * sp.sl); return [(pp[0] + k * 0.8) * U.lerp(1.05, w, t), (pp[1] + k * 0.8) * U.lerp(1.05, w, t), 0, 0]; }, disp: dispBicep(d.m * 0.5), capBot: false }), ms, J[p + 'Arm']);
-            put(G.sphere(d.armR * 1.25 + k, 12, 10), mt, J[p + 'Arm']).position.x = s * 0.008;
+            put(G.sweep({ len: slen, segU: 14, segV: 4, prof: t => { const pp = pr.up(t * sp.sl); return [(pp[0] + k * 0.8) * U.lerp(1.05, w, t), (pp[1] + k * 0.8) * U.lerp(1.05, w, t), 0, 0]; }, disp: dispBicep(d.ma), capBot: false }), ms, J[p + 'Arm']);
+            const dc = put(G.sphere(d.armR * 1.25 + k, 12, 10), mt, J[p + 'Arm']); dc.position.set(s * 0.008 * d.delt, -0.01 * d.delt, 0); dc.scale.set(d.delt, 1 + (d.delt - 1) * 0.6, d.delt * 0.95);
             if (sp.fore) {
               put(G.sphere(d.foreR * 1.2 + k, 10, 8), ms, J[p + 'Fore']);
               put(G.sweep({ len: d.fore * 0.94, segU: 12, segV: 4, prof: off(pr.fore, k * 0.8, sp.cuffs ? 0.9 : 1.05, 0.6), capTop: false, capBot: !!sp.cuffs }), ms, J[p + 'Fore']);
@@ -254,7 +256,7 @@ GR.Char = (() => {
         for (const s of [1, -1]) {
           const p = s > 0 ? 'l' : 'r';
           const tl = d.thigh * sp.thigh;
-          put(G.sweep({ len: tl + (sp.thigh < 1 ? 0 : 0.02), segU: 16, segV: 5, prof: t => { const pp = pr.thigh(t * sp.thigh); const f = sp.thigh < 1 ? 1 + 0.12 * t : 1; return [(pp[0] + k) * f, (pp[1] + k) * f, 0, pp[3]]; }, disp: dispQuad(d.m * 0.5), capBot: sp.thigh < 1 }), ml, J[p + 'Thigh']);
+          put(G.sweep({ len: tl + (sp.thigh < 1 ? 0 : 0.02), segU: 16, segV: 5, prof: t => { const pp = pr.thigh(t * sp.thigh); const f = sp.thigh < 1 ? 1 + 0.12 * t : 1; return [(pp[0] + k) * f, (pp[1] + k) * f, 0, pp[3]]; }, disp: dispQuad(d.ml), capBot: sp.thigh < 1 }), ml, J[p + 'Thigh']);
           if (sp.shin) {
             put(G.sphere(d.thighR * 0.66 + k, 10, 8), ml, J[p + 'Shin']);
             const flare = sp.flare || 1, len = d.shin * (sp.stack ? 1.0 : 0.96);

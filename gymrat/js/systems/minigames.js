@@ -17,6 +17,7 @@ GR.Mini = (() => {
     const s = GR.state, M = D.MACHINES[type], game = GR.Game;
     if (!opts.comp && s.energy < 6) { GR.UI.toast('🥱 Too tired to train. Eat, drink or sleep to restore energy.', 'warn'); return; }
     const r = rec(type);
+    if (machine) GR.NPC.vacate(machine);
     G = { type, M, machine, opts, phase: 'intro', t: 0, diff: opts.comp ? Math.min(3, Math.round(opts.comp.diff * 3)) : Math.min(r.unlocked, 1), score: 0, hits: 0, total: 0, perfect: 0, combo: 0, maxCombo: 0, reps: 0, p: 0, repAnim: 0, side: 0, fx: [], speed: 0, phaseRun: 0, dist: 0 };
     game.lockPlayer(true); game.pushUI(); game.standUp && game.standUp();
     // move the character onto the machine
@@ -159,12 +160,12 @@ GR.Mini = (() => {
     if ('SAB'.includes(gr)) GR.Prog.event('workout_grade', { machine: G.type, grade: gr });
     // trainer task
     const tt = s.flags.trainerTask; if (tt && tt.machine === G.type && 'SABCD'.indexOf(gr) <= 'SABCD'.indexOf(tt.grade)) { GR.Prog.addMoney(tt.reward); GR.Prog.addXP(80); GR.Prog.notify(`Coach Priya's challenge complete! +${U.money(tt.reward)}`, '🏋️', 'ach'); s.flags.trainerTask = null; }
-    if (s.stats.workouts % 4 === 0) GR.Game.applyMuscle();
+    const gains = GR.Game.gainMuscle(G.type, gr, DIFF[G.diff].k);
     if ('SA'.includes(gr)) { GR.NPC.onPlayerAct('flex', GR.Game.player.root.position); GR.Game.player.setExpr('smile', 2); }
     GR.Audio.sfx(gr === 'S' || gr === 'A' ? 'achievement' : 'good');
-    GR.UI.miniResults(res, { money, xp, pb, unlockedNew, nextDiff: DIFF[r.unlocked] && DIFF[r.unlocked].n, best: r.best }, () => finish());
+    GR.UI.miniResults(res, { gains, money, xp, pb, unlockedNew, nextDiff: DIFF[r.unlocked] && DIFF[r.unlocked].n, best: r.best }, () => finish());
   }
-  function finish() { const res = G && G.res; close(); if (res && 'SAB'.includes(res.grade)) GR.UI.quickShare && GR.UI.quickShare('workout', res); }
+  function finish() { const res = G && G.res; close(); if (res) { GR.Game.player.anim.play('flex', { restart: true }); GR.Game.camTo(GR.Game.camFront(2.6, 1.5, 1.2)); setTimeout(() => GR.Game.camRelease(), 2600); } if (res && 'SAB'.includes(res.grade)) GR.UI.quickShare && GR.UI.quickShare('workout', res); }
   function cancel() { if (!G) return; const cb = G.opts.comp && G.opts.comp.done; if (G.opts.comp && G.phase !== 'intro') { G.phase = 'play'; end(); return; } close(); if (cb) cb(null); }
   function close() {
     if (!G) return; const game = GR.Game; game.player.anim.stop(); if (G.machine) G.machine.anim(0, { p: 0, dt: 0 });

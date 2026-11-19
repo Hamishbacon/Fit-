@@ -105,9 +105,19 @@ GR.Game = (() => {
     if (!state.tut.done) GR.UI.tutorial();
     GR.Bus.emit('game:start');
   }
-  function applyMuscle() { // visible physical development from training (blended with chosen base build)
-    const s = GR.state; const gain = Math.min(0.45, (s.stats.workouts || 0) * 0.006); const m = U.clamp((s.baseMuscle ?? s.app.muscle) + gain, 0, 1);
-    if (Math.abs((s.app.muscle || 0) - m) > 0.02) { s.app.muscle = m; player.setAppearance(s.app); player.setOutfit(s.outfit); }
+  function applyMuscle() { // make sure every save has per-body-part muscle (older saves start from their overall value)
+    const s = GR.state; if (!s.app.mus) { const m = U.clamp((s.baseMuscle ?? s.app.muscle ?? 0.2) + Math.min(0.45, (s.stats.workouts || 0) * 0.006), 0, 1); s.app.mus = {}; Object.keys(D.MUSCLES).forEach(k => s.app.mus[k] = m); player.setAppearance(s.app); }
+  }
+  /** grow the body parts a machine trains. Returns [{k, n, before, after}] for the results screen. */
+  function gainMuscle(machine, grade, diffK = 1) {
+    const s = GR.state; applyMuscle(); const T = D.TRAINS[machine]; if (!T) return [];
+    const gm = { S: 1.4, A: 1.2, B: 1, C: 0.75, D: 0.5 }[grade] || 1, tired = s.energy < 15 ? 0.5 : 1, out = [];
+    const grow = (k, base) => { const before = s.app.mus[k]; const add = base * gm * diffK * tired * (1 - before * 0.55); const after = U.clamp(before + add, 0, 1); s.app.mus[k] = after; if (after - before > 0.001) out.push({ k, n: D.MUSCLES[k], before, after }); };
+    T[0].forEach(k => grow(k, 0.045)); T[1].forEach(k => grow(k, 0.018));
+    s.app.muscle = Object.values(s.app.mus).reduce((a, b) => a + b, 0) / 6;
+    player.setAppearance(s.app);
+    out.forEach((g, i) => setTimeout(() => GR.UI.floatText(`💪 ${g.n.toUpperCase()} +${Math.round((g.after - g.before) * 100)}%`, '#ffd23f'), 300 + i * 450));
+    return out;
   }
   function refreshPlayer() { const s = GR.state; const pos = player.root.position.clone(), ry = player.root.rotation.y; player.setAppearance(s.app); player.setOutfit(s.outfit); player.root.position.copy(pos); player.root.rotation.y = ry; }
 
@@ -269,7 +279,7 @@ GR.Game = (() => {
   function findNearest() {
     const z = W.Z, p = P.pos; let best = null, bd = 1e9;
     for (const it of z.inter) { if (it.cond && !it.cond()) continue; const d = Math.hypot(it.pos.x - p.x, it.pos.z - p.z); if (d < it.r && d < bd && Math.abs((it.y || 0) - p.y) < 1.4) { bd = d; best = it; } }
-    const npc = GR.NPC.nearestTalkable(p); if (npc && npc.d < bd + 0.5) { best = { prompt: 'Talk to ' + npc.npc.name, action: () => GR.Dialogue.talk(npc.npc), kind: 'npc', npc: npc.npc }; bd = npc.d; }
+    const npc = GR.NPC.nearestTalkable(p); if (npc && (!best || (npc.d < 0.9 && npc.d < bd * 0.6 && npc.npc.state !== 'workout'))) { best = { prompt: 'Talk to ' + npc.npc.name, action: () => GR.Dialogue.talk(npc.npc), kind: 'npc', npc: npc.npc }; bd = npc.d; }
     // seats
     if (!best) { for (const s of z.seats) { const d = Math.hypot(s.x - p.x, s.z - p.z); if (d < 1.0 && d < bd) { bd = d; best = { prompt: 'Sit down', action: () => sitOn(s, s.anim || (Math.random() < 0.5 ? 'sit' : 'sitChill')), kind: 'seat' }; } } }
     return best;
@@ -418,7 +428,7 @@ GR.Game = (() => {
   }
 
   return {
-    init, startGame, enterZone, exitZone, camTo, camRelease, camFront, sitOn, standUp, sleep, shower, drinkWater, cook, fountainWish, stagePerform, capture, refreshPlayer, applyMuscle, applyQuality, resolveQuality, visit, fade,
+    init, gainMuscle, startGame, enterZone, exitZone, camTo, camRelease, camFront, sitOn, standUp, sleep, shower, drinkWater, cook, fountainWish, stagePerform, capture, refreshPlayer, applyMuscle, applyQuality, resolveQuality, visit, fade,
     get player() { return player; }, get P() { return P; }, get scene() { return scene; }, get camera() { return camera; }, get renderer() { return renderer; }, get settings() { return settings; }, set settings(v) { settings = v; }, get quality() { return quality; }, get cam() { return cam; },
     get mode() { return mode; }, set mode(v) { mode = v; }, get fps() { return fpsAvg; }, district,
     pushUI() { uiDepth++; GR.Input.unlock(); }, popUI() { uiDepth = Math.max(0, uiDepth - 1); }, uiOpen: () => uiDepth > 0, get uiDepth() { return uiDepth; }, set uiDepth(v) { uiDepth = v; },

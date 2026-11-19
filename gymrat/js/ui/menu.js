@@ -89,7 +89,7 @@ GR.Menu = (() => {
         <div class="row"><button class="btn sm" data-r="-1">⟲ Rotate</button><button class="btn sm" data-r="1">Rotate ⟳</button><button class="btn sm" data-z>🔍 ${ms.zoom === 'face' ? 'Body' : 'Face'}</button><button class="btn sm" data-rand>🎲 Randomise</button><button class="btn sm" data-reset>↺ Reset</button></div>
         <div class="row"><button class="btn go" data-done>Next: Name →</button><button class="btn" data-back>← Back</button></div></div>`);
       m.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
-      m.querySelectorAll('[data-k]').forEach(i => i.onchange = () => { app[i.dataset.k] = +i.value; upd(); });
+      m.querySelectorAll('[data-k]').forEach(i => i.onchange = () => { app[i.dataset.k] = +i.value; if (i.dataset.k === 'muscle') app.mus = null; upd(); });
       m.querySelectorAll('[data-o]').forEach(b => b.onclick = () => { app[b.dataset.o] = b.dataset.v; upd(); render(); });
       m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { app[b.dataset.c] = b.dataset.v || null; upd(); render(); });
       m.querySelectorAll('[data-cc]').forEach(i => i.onchange = () => { app[i.dataset.cc] = i.value; upd(); render(); });

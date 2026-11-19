@@ -361,6 +361,13 @@ GR.Data = (() => {
     punch: { n: 'Punching Bag', game: 'reaction', anim: 'punch', key: 'Arrows', desc: 'Throw the combo as it flashes.', reps: 14 }
   };
 
+  // which body parts each machine trains: [primary, secondary]
+  const MUSCLES = { chest: 'Chest', arms: 'Arms', back: 'Back', shoulders: 'Shoulders', legs: 'Legs', core: 'Core' };
+  const TRAINS = { bench: [['chest'], ['arms', 'shoulders']], chestpress: [['chest'], ['arms']], pushup: [['chest', 'core'], ['arms']], dips: [['arms', 'chest'], ['shoulders']],
+    dumbbell: [['arms'], ['shoulders']], curl: [['arms'], []], cable: [['chest', 'shoulders'], ['arms']], punch: [['arms', 'core'], ['shoulders']],
+    latpull: [['back'], ['arms']], pullup: [['back', 'arms'], ['core']], rower: [['back'], ['legs', 'arms']], shoulderpress: [['shoulders'], ['arms']],
+    squat: [['legs'], ['core', 'back']], legpress: [['legs'], []], treadmill: [['legs'], ['core']], bike: [['legs'], ['core']] };
+
   /* ---------------- FOOD / VENDING / COSMETICS ---------------- */
   const FOOD = {
     cafe: [
@@ -668,6 +675,6 @@ GR.Data = (() => {
   const RADIO = { gym: { bpm: 128, key: 0, style: 'edm' }, shop: { bpm: 112, key: 5, style: 'pop' }, home: { bpm: 84, key: 2, style: 'lofi' }, arena: { bpm: 138, key: 7, style: 'arena' }, chill: { bpm: 90, key: 9, style: 'lofi' }, barber: { bpm: 94, key: 3, style: 'boom' }, menu: { bpm: 100, key: 4, style: 'synth' }, city: { bpm: 104, key: 0, style: 'city' }, dance: { bpm: 120, key: 2, style: 'edm' } };
 
   return { SKIN, HAIR_COLORS, EYE_COLORS, EYE_SHAPES, BROWS, NOSES, MOUTHS, FACE_SHAPES, EARS, HAIR, FACIAL_HAIR, STARTERS, app, BRANDS, PALETTES, SLOGANS, ITEMS, item,
-    FURNITURE, EMOTES, emote, MACHINES, FOOD, VENDING, COLLECTIBLES, COSMETICS, FACE_PRESETS, SKINCARE_STEPS, CAST, DIALOGUE, SPONSORS, COMP_TYPES, TIERS,
+    FURNITURE, EMOTES, emote, MACHINES, MUSCLES, TRAINS, FOOD, VENDING, COLLECTIBLES, COSMETICS, FACE_PRESETS, SKINCARE_STEPS, CAST, DIALOGUE, SPONSORS, COMP_TYPES, TIERS,
     FASHION_THEMES, SOCIAL_THEMES, HASHTAGS, JUDGE_LINES, RIVAL_NAMES, ACHIEVEMENTS, CHALLENGES, xpForLevel, HANDLES, COMMENTS, TRENDS, LOCATIONS, RADIO };
 })();

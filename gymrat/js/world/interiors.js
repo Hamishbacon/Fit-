@@ -38,7 +38,7 @@ GR.Interiors = (() => {
     const a = m.anchor, ax = x + a.x * Math.cos(ry) + a.z * Math.sin(ry), az = z - a.x * Math.sin(ry) + a.z * Math.cos(ry);
     const off = type === 'bench' ? 0.9 : type === 'rower' ? 0.9 : type === 'treadmill' ? 1.4 : 0.9;
     const dirx = Math.sin(ry + (type === 'bench' ? Math.PI : 0)), dirz = Math.cos(ry + (type === 'bench' ? Math.PI : 0));
-    const ip = { id: zn.id + '_m' + i, x: ax - zn.ox + (type === 'treadmill' || type === 'rower' || type === 'bike' ? -Math.sin(ry) * off : dirx * off * 0.6), z: az + (type === 'treadmill' || type === 'rower' || type === 'bike' ? -Math.cos(ry) * off : dirz * off * 0.6), r: 1.5, prompt: 'Train: ' + D.MACHINES[type].n, action: () => GR.Mini.startWorkout(type, m), kind: 'machine', machine: m };
+    const ip = { id: zn.id + '_m' + i, x: ax + (type === 'treadmill' || type === 'rower' || type === 'bike' ? -Math.sin(ry) * off : dirx * off * 0.6), z: az + (type === 'treadmill' || type === 'rower' || type === 'bike' ? -Math.cos(ry) * off : dirz * off * 0.6), r: 1.5, prompt: 'Train: ' + D.MACHINES[type].n, action: () => GR.Mini.startWorkout(type, m), kind: 'machine', machine: m };
     l.inter(ip);
     m.world = { zone: zn.id, x: zn.ox + x, z, ry, y: 0 };
     zn.machines = zn.machines || []; zn.machines.push(m);

@@ -80,7 +80,7 @@ GR.NPC = (() => {
     if (id === 'gym') {
       const ms = (z.machines || []).slice(); U.shuffle(ms);
       const castGym = D.CAST.filter(d => castWhere(d) === 'gym');
-      const nGen = Math.round(6 * density);
+      const nGen = Math.round(4 * density);
       [...castGym.map(d => ({ d })), ...Array.from({ length: nGen }, () => ({}))].forEach((o, i) => {
         const m = ms[i]; if (!m) return;
         const n = o.d ? castChar(o.d) : spawn('gym', randomApp(r), randomOutfit(r, 'gym'), { pers: U.pick(['hype', 'gentle', 'chill', 'rival']) });
@@ -213,8 +213,10 @@ GR.NPC = (() => {
     near.forEach((n, i) => { n.prevState = n.state; n.state = 'group'; const a = (i + 1) / (near.length + 1) * Math.PI - Math.PI / 2; const f = GR.Game.P.facing; const off = new THREE.Vector3(Math.sin(f + Math.PI / 2) * (i % 2 ? 1 : -1) * (1.2 + Math.floor(i / 2) * 1.2), 0, Math.cos(f + Math.PI / 2) * (i % 2 ? 1 : -1) * (1.2 + Math.floor(i / 2) * 1.2)); n.char.root.position.set(center.x + off.x, n.char.root.position.y, center.z + off.z); n.char.root.rotation.y = f; n.char.anim.play(base, { restart: true }); n.char.anim.act.t = GR.Game.player.anim.act ? GR.Game.player.anim.act.t : 0; setTimeout(() => { n.char.anim.stop(); n.state = n.prevState || 'idle'; n.prevState = null; }, 8000); });
     return near.length;
   }
+  // the player wants this machine: whoever is on it steps off and does something else nearby
+  function vacate(m) { list.forEach(n => { if (n.machine !== m) return; n.machine = null; n.state = 'idle'; n.char.anim.stop(0.1); const w = m.world; n.char.root.position.set(w.x + Math.cos(w.ry) * 1.6, w.y || 0, w.z - Math.sin(w.ry) * 1.6); n.char.root.position.y = W.groundAt(W.Z, n.char.root.position.x, n.char.root.position.z, 2); n.char.anim.play(U.pick(['stretch', 'phone', 'cross', 'talk'])); bark(n, U.pick(['All yours, legend.', 'Go on, show me what you got.', 'Machine\'s free!', 'Spot you after?'])); }); }
   function castById(id) { return list.find(n => n.id === id); }
-  return { init, setDensity, enterZone, respawnCity, update, nearestTalkable, onPlayerAct, groupEmote, bark, fillCrowd, crowdReact, randomApp, randomOutfit, hourly, castById, castWhere, get list() { return list; }, makeChar };
+  return { vacate, init, setDensity, enterZone, respawnCity, update, nearestTalkable, onPlayerAct, groupEmote, bark, fillCrowd, crowdReact, randomApp, randomOutfit, hourly, castById, castWhere, get list() { return list; }, makeChar };
 })();
 
 /* ---------------- DIALOGUE & FRIENDSHIP ---------------- */

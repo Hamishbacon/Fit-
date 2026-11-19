@@ -224,3 +224,6 @@ textarea { width: 100%; min-height: 54px; resize: none; }
 #loading .ls { font-family: 'Bungee', sans-serif; color: var(--acc2); letter-spacing: 4px; margin-bottom: 30px; }
 .spin { width: 48px; height: 48px; border-radius: 50%; border: 5px solid rgba(255,255,255,0.15); border-top-color: var(--acc); animation: sp 0.8s linear infinite; margin-bottom: 14px; } @keyframes sp { to { transform: rotate(360deg); } }
 @media (max-width: 900px) { .panel.side-right { width: 94vw; right: 3vw; } .mpanel.side { width: 94vw; } .dopts { grid-template-columns: 1fr; } .stats4 { grid-template-columns: 1fr 1fr; } }
+
+.gains { margin: 8px 0; } .gain { display: grid; grid-template-columns: 90px 1fr 46px; gap: 8px; align-items: center; margin: 4px 0; font-size: 13px; font-weight: 700; } .gain small { grid-column: 2 / 4; margin-top: -3px; }
+.gain .bar { position: relative; height: 12px; } .gain .bar i { position: absolute; top: 0; height: 100%; } .gain .bar i.old { left: 0; background: linear-gradient(90deg, #7b61ff, #28e0ff); } .gain .bar i.new { background: #ffd23f; box-shadow: 0 0 8px #ffd23f; border-radius: 0 6px 6px 0; }
