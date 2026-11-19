@@ -278,17 +278,34 @@ GR.Game = (() => {
   /* ---------------- INTERACTION ---------------- */
   function findNearest() {
     const z = W.Z, p = P.pos; let best = null, bd = 1e9;
-    for (const it of z.inter) { if (it.cond && !it.cond()) continue; const d = Math.hypot(it.pos.x - p.x, it.pos.z - p.z); if (d < it.r && d < bd && Math.abs((it.y || 0) - p.y) < 1.4) { bd = d; best = it; } }
+    for (const it of z.inter) {
+      if (it.cond && !it.cond()) continue;
+      let d = Math.hypot(it.pos.x - p.x, it.pos.z - p.z), r = it.r;
+      // machines: usable from any side — distance to the machine's footprint, not to one point
+      if (it.machine) { const b = machineBox(it); d = Math.min(d, Math.hypot(Math.max(b.min.x - p.x, 0, p.x - b.max.x), Math.max(b.min.z - p.z, 0, p.z - b.max.z)) * 1.4); r = Math.max(r, 1.4); }
+      if (d < r && d < bd && Math.abs((it.y || 0) - p.y) < 1.4) { bd = d; best = it; }
+    }
     const npc = GR.NPC.nearestTalkable(p); if (npc && (!best || (npc.d < 0.9 && npc.d < bd * 0.6 && npc.npc.state !== 'workout'))) { best = { prompt: 'Talk to ' + npc.npc.name, action: () => GR.Dialogue.talk(npc.npc), kind: 'npc', npc: npc.npc }; bd = npc.d; }
     // seats
     if (!best) { for (const s of z.seats) { const d = Math.hypot(s.x - p.x, s.z - p.z); if (d < 1.0 && d < bd) { bd = d; best = { prompt: 'Sit down', action: () => sitOn(s, s.anim || (Math.random() < 0.5 ? 'sit' : 'sitChill')), kind: 'seat' }; } } }
     return best;
   }
+  function machineBox(it) {
+    if (!it._box) { it.machine.g.updateMatrixWorld(true); it._box = new THREE.Box3().setFromObject(it.machine.g); it._box.expandByScalar(0.05); }
+    return it._box;
+  }
+  // glowing floor rings under machines: always faintly visible, bright on the one you can use
+  let rings = null, ringZone = null;
+  function machineRings(t) {
+    const z = W.Z, key = z.id + ':' + z.inter.length; if (ringZone !== key) { if (rings) rings.forEach(r => r.parent && r.parent.remove(r)); rings = []; ringZone = key;
+      z.inter.filter(i => i.machine).forEach(it => { const b = machineBox(it), c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3()); const g = new THREE.Mesh(new THREE.RingGeometry(1, 1.12, 40), new THREE.MeshBasicMaterial({ color: 0x5ff0ff, transparent: true, opacity: 0.25, depthWrite: false })); g.rotation.x = -Math.PI / 2; g.position.set(c.x, (it.machine.world.y || 0) + 0.03, c.z); g.scale.set(Math.max(s.x, 1.2) * 0.62, Math.max(s.z, 1.2) * 0.62, 1); g.userData.it = it; z.group.add(g); rings.push(g); }); }
+    rings.forEach(r => { const on = near === r.userData.it; r.material.opacity = on ? 0.7 + Math.sin(t * 6) * 0.2 : 0.22; r.material.color.set(on ? 0x7cff6b : 0x5ff0ff); });
+  }
   function updateInteract(dt) {
     interactCooldown -= dt;
     if (mode !== 'play' || uiDepth > 0 || P.locked) { near = null; GR.UI.prompt(null); return; }
-    near = findNearest();
-    GR.UI.prompt(near ? near.prompt : (P.seat ? 'Move to stand up' : null));
+    near = findNearest(); machineRings(performance.now() / 1000);
+    GR.UI.prompt(near ? (near.machine ? near.prompt + '  (press E)' : near.prompt) : (P.seat ? 'Move to stand up' : null));
     if (near && GR.Input.hit('interact') && interactCooldown <= 0) { interactCooldown = 0.35; GR.Audio.sfx('click'); try { near.action(); } catch (e) { console.error(e); } }
   }
 
@@ -428,7 +445,7 @@ GR.Game = (() => {
   }
 
   return {
-    init, gainMuscle, startGame, enterZone, exitZone, camTo, camRelease, camFront, sitOn, standUp, sleep, shower, drinkWater, cook, fountainWish, stagePerform, capture, refreshPlayer, applyMuscle, applyQuality, resolveQuality, visit, fade,
+    _findNearest: () => findNearest(), init, gainMuscle, startGame, enterZone, exitZone, camTo, camRelease, camFront, sitOn, standUp, sleep, shower, drinkWater, cook, fountainWish, stagePerform, capture, refreshPlayer, applyMuscle, applyQuality, resolveQuality, visit, fade,
     get player() { return player; }, get P() { return P; }, get scene() { return scene; }, get camera() { return camera; }, get renderer() { return renderer; }, get settings() { return settings; }, set settings(v) { settings = v; }, get quality() { return quality; }, get cam() { return cam; },
     get mode() { return mode; }, set mode(v) { mode = v; }, get fps() { return fpsAvg; }, district,
     pushUI() { uiDepth++; GR.Input.unlock(); }, popUI() { uiDepth = Math.max(0, uiDepth - 1); }, uiOpen: () => uiDepth > 0, get uiDepth() { return uiDepth; }, set uiDepth(v) { uiDepth = v; },

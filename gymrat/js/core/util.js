@@ -1,6 +1,7 @@
 /* GYM RAT 2000: THE MOGGING ERA — shared utilities, event bus and namespace. */
 'use strict';
 window.GR = window.GR || {};
+GR.VERSION = 'v1.5 (machines usable from any side)';
 
 GR.U = (() => {
   const TAU = Math.PI * 2;

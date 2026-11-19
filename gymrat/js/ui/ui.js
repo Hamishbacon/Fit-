@@ -213,7 +213,7 @@ GR.UI = (() => {
 
   /* ---------------- PAUSE / SETTINGS ---------------- */
   function pause() {
-    const p = open('pause', { title: '⏸ PAUSED', cls: 'small', pauseTime: true, html: `<div class="col">
+    const p = open('pause', { title: '⏸ PAUSED <small style="font-size:11px;opacity:.7">' + GR.VERSION + '</small>', cls: 'small', pauseTime: true, html: `<div class="col">
       <button class="btn" data-a="resume">▶ Resume</button><button class="btn" data-a="inv">🎒 Inventory</button><button class="btn" data-a="map">🗺️ Map</button><button class="btn" data-a="profile">📊 Stats & Achievements</button>
       <button class="btn" data-a="settings">⚙️ Settings</button><button class="btn" data-a="save">💾 Save Game</button><button class="btn" data-a="help">❓ Controls & Help</button><button class="btn danger" data-a="menu">🏠 Save & Quit to Menu</button></div>` });
     p.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'resume') close(); if (a === 'inv') { close(); inventory(); } if (a === 'map') { close(); openMap(); } if (a === 'profile') { close(); profile(); } if (a === 'settings') settingsPanel(); if (a === 'save') { const ok = GR.Save.save(GR.state, true); toast(ok ? '💾 Game saved to slot ' + (GR.state.slot + 1) : '⚠️ Could not save to browser storage.'); } if (a === 'help') help(); if (a === 'menu') { GR.Save.save(GR.state); location.reload(); } });

@@ -39,7 +39,7 @@ GR.Menu = (() => {
     const m = show(`<div class="logo"><div class="l1">GYM RAT 2000</div><div class="l2">THE MOGGING ERA</div></div>
       <div class="mbtns">${info && !info.corrupt ? `<button class="btn big go" data-a="cont">▶ Continue <small>${esc(info.name)} • Lv ${info.level} • Day ${info.day}</small></button>` : ''}
       <button class="btn big" data-a="new">✨ New Game</button><button class="btn big" data-a="load">💾 Load Game</button><button class="btn big" data-a="set">⚙️ Settings</button><button class="btn big" data-a="cred">🎬 Credits</button></div>
-      <div class="foot">Click anywhere to enable sound • A lifestyle sim where the gym is only one part of a much bigger world.</div>`);
+      <div class="foot"><b>${GR.VERSION}</b> • Click anywhere to enable sound • A lifestyle sim where the gym is only one part of a much bigger world.</div>`);
     m.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { GR.Audio.resume(); GR.Audio.music('menu'); GR.Audio.sfx('click'); const a = b.dataset.a; if (a === 'cont') loadSlot(last); if (a === 'new') slots('new'); if (a === 'load') slots('load'); if (a === 'set') menuSettings(); if (a === 'cred') credits(); });
   }
   function slots(kind) {
