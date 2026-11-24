@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jeox · Free Online Games</title>
+  <meta name="description" content="Play free online games on Jeox: action, puzzle, arcade, sports and more, right in your browser.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="logo" href="index.html">Je<span>ox</span></a>
+      <input class="search" id="search" type="search" placeholder="Search games…" aria-label="Search games">
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Free games, no downloads</h1>
+      <p>Pick a game and play instantly in your browser, on phone or computer.</p>
+    </section>
+
+    <div class="chips" id="chips" role="toolbar" aria-label="Categories"></div>
+    <div class="grid" id="grid"></div>
+  </main>
+
+  <footer></footer>
+
+  <script src="games.js"></script>
+  <script src="site.js"></script>
+  <script>
+    const grid = document.getElementById("grid");
+    const chips = document.getElementById("chips");
+    const search = document.getElementById("search");
+    let activeCat = "All";
+
+    ["All", ...CATEGORIES].forEach(cat => {
+      const b = document.createElement("button");
+      b.className = "chip";
+      b.textContent = cat;
+      b.setAttribute("aria-pressed", cat === activeCat);
+      b.onclick = () => {
+        activeCat = cat;
+        chips.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c.textContent === cat));
+        render();
+      };
+      chips.appendChild(b);
+    });
+
+    function render() {
+      const q = search.value.trim().toLowerCase();
+      const list = GAMES.filter(g =>
+        (activeCat === "All" || g.category === activeCat) &&
+        (!q || g.title.toLowerCase().includes(q) || g.category.toLowerCase().includes(q))
+      );
+      // Playable games first
+      list.sort((a, b) => (b.embed ? 1 : 0) - (a.embed ? 1 : 0));
+      grid.innerHTML = list.length ? list.map(cardHTML).join("") : '<p class="empty">No games found.</p>';
+    }
+
+    search.addEventListener("input", render);
+    render();
+  </script>
+</body>
+</html>

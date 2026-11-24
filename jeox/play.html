@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Play · Jeox</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="logo" href="index.html">Je<span>ox</span></a>
+    </div>
+  </header>
+
+  <main class="wrap play">
+    <a class="back" href="index.html">← All games</a>
+    <div class="stage" id="stage"></div>
+    <div class="meta">
+      <h1 id="title"></h1>
+      <span class="pill" id="cat"></span>
+      <button class="btn" id="fs">⛶ Full screen</button>
+    </div>
+    <p class="desc" id="desc"></p>
+
+    <h2 class="more">More games</h2>
+    <div class="grid" id="more"></div>
+  </main>
+
+  <footer></footer>
+
+  <script src="games.js"></script>
+  <script src="site.js"></script>
+  <script>
+    const id = new URLSearchParams(location.search).get("game");
+    const game = GAMES.find(g => g.id === id) || GAMES[0];
+    const stage = document.getElementById("stage");
+
+    document.title = game.title + " · Jeox";
+    document.getElementById("title").textContent = game.title;
+    document.getElementById("cat").textContent = game.category;
+    document.getElementById("desc").textContent = game.description;
+    if (game.orientation === "portrait") stage.classList.add("portrait");
+
+    if (game.embed) {
+      const f = document.createElement("iframe");
+      f.src = game.embed;
+      f.title = game.title;
+      f.allow = "autoplay; fullscreen; gamepad";
+      f.allowFullscreen = true;
+      stage.appendChild(f);
+    } else {
+      stage.style.background = game.color;
+      stage.innerHTML = `<div class="soon"><div><div class="big">${game.icon}</div><h2>Coming soon</h2><p>This game is on its way.</p></div></div>`;
+      document.getElementById("fs").hidden = true;
+    }
+
+    document.getElementById("fs").onclick = () => {
+      const el = stage;
+      (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el);
+    };
+
+    const others = GAMES.filter(g => g.id !== game.id)
+      .sort((a, b) => (b.embed ? 1 : 0) - (a.embed ? 1 : 0) || (b.category === game.category) - (a.category === game.category))
+      .slice(0, 6);
+    document.getElementById("more").innerHTML = others.map(cardHTML).join("");
+  </script>
+</body>
+</html>

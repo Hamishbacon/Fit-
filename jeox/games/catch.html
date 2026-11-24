@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Star Catcher</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1030; touch-action: none; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .ov {
+    position: fixed; inset: 0; display: grid; place-items: center; text-align: center;
+    color: #fff; font-family: system-ui, sans-serif; background: rgba(5,8,30,.55); cursor: pointer;
+  }
+  .ov.hide { display: none; }
+  .ov h1 { font-size: clamp(28px, 8vh, 56px); margin: 0 0 6px; }
+  .ov p { margin: 4px; opacity: .9; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ov" id="ov"><div><h1>⭐ Star Catcher</h1><p>Move with mouse, finger or ← → keys</p><p>Catch ⭐, avoid 💣. 3 lives.</p><p><b>Tap to start</b></p></div></div>
+<script>
+const cv = document.getElementById("c"), ctx = cv.getContext("2d"), ov = document.getElementById("ov");
+let W, H, dpr, basket, items, score, lives, running = false, last = 0, spawnT = 0, speed, keys = {};
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  W = innerWidth; H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+addEventListener("resize", resize); resize();
+
+const stars = Array.from({ length: 80 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 1.5 + .3 }));
+
+function reset() {
+  basket = { x: W / 2, w: Math.max(70, W * .12), h: 18 };
+  items = []; score = 0; lives = 3; speed = 1; spawnT = 0;
+}
+function start() { reset(); running = true; ov.classList.add("hide"); last = performance.now(); requestAnimationFrame(loop); }
+
+ov.addEventListener("pointerdown", start);
+addEventListener("pointermove", e => { if (running) basket.x = e.clientX; });
+addEventListener("pointerdown", e => { if (running) basket.x = e.clientX; });
+addEventListener("keydown", e => { keys[e.key] = true; if (!running && (e.code === "Space" || e.code === "Enter")) start(); });
+addEventListener("keyup", e => { keys[e.key] = false; });
+
+function loop(t) {
+  if (!running) return;
+  const dt = Math.min(.05, (t - last) / 1000); last = t;
+  if (keys.ArrowLeft) basket.x -= 600 * dt;
+  if (keys.ArrowRight) basket.x += 600 * dt;
+  basket.x = Math.max(basket.w / 2, Math.min(W - basket.w / 2, basket.x));
+
+  speed += dt * .03;
+  spawnT -= dt;
+  if (spawnT <= 0) {
+    items.push({ x: 20 + Math.random() * (W - 40), y: -30, bomb: Math.random() < .25, v: (140 + Math.random() * 100) * speed });
+    spawnT = Math.max(.25, .8 / speed);
+  }
+  const by = H - 50;
+  for (const it of items) {
+    it.y += it.v * dt;
+    if (!it.hit && it.y > by - 20 && it.y < by + basket.h && Math.abs(it.x - basket.x) < basket.w / 2 + 10) {
+      it.hit = true;
+      if (it.bomb) lives--; else score++;
+    }
+    if (!it.hit && it.y > H + 20) { it.hit = true; if (!it.bomb) lives--; }
+  }
+  items = items.filter(i => !i.hit);
+  draw(by);
+  if (lives <= 0) {
+    running = false;
+    ov.innerHTML = `<div><h1>Game over</h1><p>You caught <b>${score}</b> stars</p><p><b>Tap to play again</b></p></div>`;
+    ov.classList.remove("hide");
+    return;
+  }
+  requestAnimationFrame(loop);
+}
+
+function draw(by) {
+  ctx.fillStyle = "#0b1030"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "rgba(255,255,255,.6)";
+  for (const s of stars) { ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, 7); ctx.fill(); }
+  ctx.font = "32px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (const it of items) ctx.fillText(it.bomb ? "💣" : "⭐", it.x, it.y);
+  ctx.fillStyle = "#e17055";
+  const bx = basket.x - basket.w / 2;
+  ctx.beginPath(); ctx.roundRect(bx, by, basket.w, basket.h, 8); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.font = "bold 20px system-ui"; ctx.textAlign = "left";
+  ctx.fillText("⭐ " + score, 16, 26);
+  ctx.textAlign = "right"; ctx.fillText("❤️".repeat(lives), W - 16, 26);
+}
+reset(); draw(H - 50);
+</script>
+</body>
+</html>

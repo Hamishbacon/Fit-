@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quick Tap</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: system-ui, sans-serif; color: #fff; text-align: center;
+    display: grid; place-items: center; cursor: pointer; user-select: none;
+    transition: background .1s; background: #2d3436;
+  }
+  body.wait { background: #d63031; }
+  body.go { background: #00b894; }
+  h1 { font-size: clamp(28px, 8vh, 64px); margin: 0 0 8px; }
+  p { font-size: clamp(14px, 3vh, 22px); margin: 4px; opacity: .9; }
+  .best { position: fixed; top: 12px; right: 16px; font-weight: 700; opacity: .85; }
+</style>
+</head>
+<body>
+  <div class="best">Best: <span id="best">–</span></div>
+  <div><h1 id="h">⚡ Quick Tap</h1><p id="p">Tap anywhere to start</p></div>
+<script>
+const h = document.getElementById("h"), p = document.getElementById("p");
+let state = "idle", timer = null, t0 = 0, best = null;
+
+function set(cls, title, text) { document.body.className = cls; h.textContent = title; p.textContent = text; }
+
+function tap() {
+  if (state === "idle" || state === "result") {
+    state = "wait"; set("wait", "Wait for green…", "Don't tap yet!");
+    timer = setTimeout(() => { state = "go"; t0 = performance.now(); set("go", "TAP!", ""); }, 1200 + Math.random() * 2800);
+  } else if (state === "wait") {
+    clearTimeout(timer); state = "result"; set("", "Too soon! 😅", "Tap to try again");
+  } else if (state === "go") {
+    const ms = Math.round(performance.now() - t0);
+    if (best === null || ms < best) best = ms;
+    document.getElementById("best").textContent = best + " ms";
+    const rating = ms < 220 ? "Lightning fast! 🔥" : ms < 300 ? "Great reflexes! 👏" : ms < 400 ? "Not bad! 🙂" : "Keep practising! 🐢";
+    state = "result"; set("", ms + " ms", rating + "  ·  Tap to go again");
+  }
+}
+addEventListener("pointerdown", tap);
+addEventListener("keydown", e => { if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); tap(); } });
+</script>
+</body>
+</html>
