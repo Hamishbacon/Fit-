@@ -115,6 +115,23 @@ table.stats{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}
 table.stats th,table.stats td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:center}
 table.stats th:first-child,table.stats td:first-child{text-align:left;color:var(--mut)}
 table.stats .big{font-size:20px;font-weight:900;color:var(--acc)}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.coins{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:20px;background:rgba(255,201,60,.1);border:1px solid rgba(255,201,60,.35);font-weight:900;color:var(--acc);font-variant-numeric:tabular-nums}
+.coin{display:inline-block;width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3b0,#ffc93c 45%,#b37b10);box-shadow:inset 0 0 0 1.5px rgba(120,70,0,.5);vertical-align:-2px}
+.shopbtn{padding:7px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.05);font-weight:800;font-size:13px}
+.shopbtn:hover{background:rgba(255,255,255,.1)}
+.msg{margin:6px 0 4px;padding:9px 12px;border-radius:12px;background:rgba(74,168,255,.1);border:1px solid rgba(74,168,255,.35);font-size:13px;text-align:center}
+.tg.fee{color:var(--acc)}
+.earn{text-align:center;font-weight:800;margin:6px 0 2px;font-variant-numeric:tabular-nums}.earn small{color:var(--mut);font-weight:600}
+.shop{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px}
+.cuecard{padding:10px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.035);display:flex;flex-direction:column;gap:5px}
+.cuecard.on{border-color:rgba(255,201,60,.7);background:rgba(255,201,60,.08)}
+.cueprev{width:100%;height:22px}
+.cn{font-weight:800;font-size:14px}
+.bar{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--mut)}
+.bar i{display:flex;gap:3px}.bar b,.bar em{width:16px;height:6px;border-radius:3px;background:var(--acc)}.bar em{background:rgba(255,255,255,.1)}
+.btn.sm{margin-top:4px;padding:8px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn.sm[disabled]{opacity:.6;cursor:default}.btn.buy.poor{opacity:.55}
 .help h3{margin:14px 0 6px;font-size:13px;letter-spacing:2px;color:var(--acc)}
 .help p,.help li{font-size:13.5px;line-height:1.5;color:#cfd8e2;margin:4px 0}
 .help ul{padding-left:18px;margin:4px 0}
@@ -184,6 +201,17 @@ const AIS=[
  {name:'Professor Q', ini:'PQ',tag:'Calculates everything', col:'#9b6dff',err:.14, perr:.025,cands:12,powers:[1,1.3,1.8,2.4],spins:[0,-.7,.6],noise:50, posW:130,safeW:80, maxCut:.25,think:.7, safety:true, kicks:true},
  {name:'The Phantom', ini:'TP',tag:'Has never missed',      col:'#ff4d4d',err:.06, perr:.015,cands:14,powers:[1,1.3,1.8,2.4],spins:[0,-.8,.7],noise:15, posW:160,safeW:100,maxCut:.22,think:.6, safety:true, kicks:true},
 ];
+const CUES=[
+ {name:'House Cue',    price:0,    st:[2,2,2,1],tip:'#3d78cc',shaft:'#e6c58c',joint:'#c8ccd3',fore:'#6a2c12',inlay:'#e8d6a5',wrap:'#241109',butt:'#0f0f0f'},
+ {name:'Oak Classic',  price:300,  st:[3,2,2,2],tip:'#3d78cc',shaft:'#d9b27a',joint:'#b9a27a',fore:'#3e2410',inlay:'#f0e2b6',wrap:'#4a2a12',butt:'#2a160a'},
+ {name:'Emerald',      price:800,  st:[3,3,3,2],tip:'#2f9c6a',shaft:'#ead1a0',joint:'#d6e6dc',fore:'#0e5a3a',inlay:'#c9f2d9',wrap:'#0b2b1d',butt:'#06170f'},
+ {name:'Carbon Strike',price:1600, st:[3,4,3,3],tip:'#e04030',shaft:'#3a3e46',joint:'#9aa0aa',fore:'#16181c',inlay:'#ff4d3d',wrap:'#0d0e10',butt:'#050505'},
+ {name:'Royal Gold',   price:3200, st:[4,4,4,3],tip:'#5b1a6e',shaft:'#f1dfb0',joint:'#ffd45c',fore:'#5b1a6e',inlay:'#ffd45c',wrap:'#2a0d33',butt:'#c99a2e'},
+ {name:'Inferno',      price:6000, st:[4,5,4,4],tip:'#ff8a1f',shaft:'#e8c48c',joint:'#ffb02e',fore:'#a3170f',inlay:'#ffb02e',wrap:'#2a0705',butt:'#e5431a'},
+ {name:'Phantom Edge', price:12000,st:[5,5,5,5],tip:'#7fe0ff',shaft:'#dfe7f2',joint:'#7fe0ff',fore:'#0b1830',inlay:'#7fe0ff',wrap:'#06101f',butt:'#6fbfe8'},
+];
+const STAT_NAMES=['Aim','Power','Spin','Time'];
+const FEES=[0,25,50,100,250,500],PRIZES=[40,80,160,320,750,1500];
 const $=s=>document.querySelector(s);
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const gauss=()=>{let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
@@ -194,7 +222,7 @@ const groupOf=id=>id===0||id===8?null:(id<8?'solids':'stripes');
 /* ---------------- saved settings ---------------- */
 const KEY='pocketkings_pool_v1';
 function loadCfg(){try{return JSON.parse(localStorage.getItem(KEY))||{};}catch(e){return {};}}
-const cfg=Object.assign({mode:'8',opp:'ai',lvl:0,progress:0,best:[0,0,0,0,0,0],beat:[0,0,0,0,0,0],wins:0,games:0,hi:0,guide:'long',aimSens:'normal',clock:30,sound:true,felt:0,breaker:0},loadCfg());
+const cfg=Object.assign({mode:'8',opp:'ai',lvl:0,progress:0,best:[0,0,0,0,0,0],beat:[0,0,0,0,0,0],wins:0,games:0,hi:0,guide:'long',aimSens:'normal',clock:30,coins:200,cues:[0],cue:0,daily:'',sound:true,felt:0,breaker:0},loadCfg());
 function saveCfg(){try{localStorage.setItem(KEY,JSON.stringify(cfg));}catch(e){}}
 
 /* ---------------- table geometry ---------------- */
@@ -570,7 +598,7 @@ function buildTable(){
    GAME STATE
    ===================================================================== */
 let game=null,paused=false;
-function mkPlayer(name,isAI,ini,col){return {name,isAI,ini,col,group:null,score:0,potted:0,fouls:0,streak:0,bestStreak:0,shots:0,brk:0};}
+function mkPlayer(name,isAI,ini,col,cue){return {name,isAI,ini,col,cue:cue||0,group:null,score:0,potted:0,fouls:0,streak:0,bestStreak:0,shots:0,brk:0};}
 function mkBalls(n){const a=[];for(let i=0;i<n;i++)a.push({id:i,x:0,y:0,vx:0,vy:0,on:true,m:randRot(),rc:0,dirty:true,cv:null,lx:0,ly:0,pot:null});return a;}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
 function rack(){
@@ -605,7 +633,7 @@ function startGame(){
   const vsAI=cfg.opp==='ai',ai=AIS[cfg.lvl];
   const demo=/[?&]demo/.test(location.search);
   game={mode:cfg.mode,vsAI,lvl:cfg.lvl,
-    players:[mkPlayer(demo?'Demo AI':(vsAI?'You':'Player 1'),demo,demo?'AI':(vsAI?'YOU':'P1'),'#3c7bd8'),mkPlayer(vsAI?ai.name:'Player 2',vsAI,vsAI?ai.ini:'P2',vsAI?ai.col:'#d8573c')],
+    players:[mkPlayer(demo?'Demo AI':(vsAI?'You':'Player 1'),demo,demo?'AI':(vsAI?'YOU':'P1'),'#3c7bd8',demo?cfg.lvl:cfg.cue),mkPlayer(vsAI?ai.name:'Player 2',vsAI,vsAI?ai.ini:'P2',vsAI?ai.col:'#d8573c',vsAI?Math.min(cfg.lvl,CUES.length-1):cfg.cue)],
     cur:vsAI?0:cfg.breaker%2,isBreak:true,bih:true,kitchen:cfg.mode==='S'?'D':true,balls:mkBalls(cfg.mode==='S'?22:16),snk:{on:'red'},state:'aim',aim:0,power:0,spin:{x:0,y:0},
     clockLeft:0,shot:null,popups:[],ai:null,acc:0,startPos:[],t0:performance.now(),strike:null,over:false};
   if(!vsAI)cfg.breaker++;
@@ -616,9 +644,11 @@ function startGame(){
   toast(`${game.players[game.cur].name} to ${game.mode==='S'?'break off':'break'}`,'gold');
   startTurn();
 }
+function cueOf(P){return CUES[P.cue]||CUES[0];}
+function cueFx(P){const st=cueOf(P).st;if(P.isAI)return {pow:1,spin:1,aim:1,time:0};return {pow:0.94+0.03*st[1],spin:0.8+0.1*st[2],aim:0.7+0.15*st[0],time:2*(st[3]-1)};}
 function humanTurn(){return game&&!paused&&game.state==='aim'&&!game.players[game.cur].isAI;}
 function startTurn(){
-  const g=game;g.state='aim';g.power=0;input.lock=null;g.clockLeft=cfg.clock||0;g.spin={x:0,y:0};setSpinUI();
+  const g=game;g.state='aim';g.power=0;input.lock=null;g.clockMax=cfg.clock?cfg.clock+cueFx(g.players[g.cur]).time:0;g.clockLeft=g.clockMax;g.spin={x:0,y:0};setSpinUI();
   const P=g.players[g.cur];
   if(P.isAI)g.ai={gen:aiThink(),plan:null,phase:'think',t:0};
   else g.ai=null;
@@ -659,10 +689,11 @@ function shoot(ang,pow,sx,sy){
 function releaseStrike(){
   const g=game,s=g.strike,c=g.balls[0],dx=Math.cos(s.ang),dy=Math.sin(s.ang);
   const P=g.players[g.cur];
-  g.shot=newShot(s.sy,s.sx,dx,dy);
+  const fx=cueFx(P);
+  g.shot=newShot(s.sy*fx.spin,s.sx*fx.spin,dx,dy);
   g.shot.legal=legalFor(g.mode,grpArg(g,g.cur),g.balls);g.shot.lowest=g.shot.legal[0];g.shot.clockLeft=g.clockLeft;
   g.startPos=g.balls.map(b=>({x:b.x,y:b.y}));
-  c.vx=dx*s.pow*MAXV;c.vy=dy*s.pow*MAXV;
+  c.vx=dx*s.pow*fx.pow*MAXV;c.vy=dy*s.pow*fx.pow*MAXV;
   P.shots++;
   FX.cue(s.pow);
   g.state='rolling';g.acc=0;g.bih=false;g.power=0;
@@ -794,8 +825,14 @@ function endGame(winner,reason,wasBreak){
     cfg.best[g.lvl]=Math.max(cfg.best[g.lvl]||0,g.players[0].score);
     cfg.hi=Math.max(cfg.hi||0,g.players[0].score);
   }else cfg.hi=Math.max(cfg.hi||0,g.players[0].score,g.players[1].score);
+  let coins=0;
+  if(!/[?&]demo/.test(location.search)){
+    if(g.vsAI)coins=(winner===0?PRIZES[g.lvl]:0)+Math.floor(g.players[0].score*(g.mode==='S'?2:1)/100);
+    else coins=20;
+    cfg.coins+=coins;
+  }
   saveCfg();updateHUD();
-  setTimeout(()=>showResult(winner,reason,unlocked),1400);
+  setTimeout(()=>showResult(winner,reason,unlocked,coins),1400);
 }
 
 /* =====================================================================
@@ -929,15 +966,16 @@ function runAI(dt){
 /* =====================================================================
    RENDERING
    ===================================================================== */
-function drawCue(c,cx,cy,ang,pull,alpha){
+function drawCue(c,cx,cy,ang,pull,alpha,ci){
+  const K=CUES[ci]||CUES[0];
   const x0=R+3+pull,L=620,w0=2.7,w1=7.2,wAt=x=>w0+(w1-w0)*clamp((x-x0)/L,0,1);
   const poly=(a,b)=>{c.beginPath();c.moveTo(a,-wAt(a));c.lineTo(b,-wAt(b));c.lineTo(b,wAt(b));c.lineTo(a,wAt(a));c.closePath();};
   c.save();c.globalAlpha=alpha*0.28;c.translate(cx+7,cy+11);c.rotate(ang+Math.PI);c.fillStyle='#000';poly(x0,x0+L);c.fill();c.restore();
   c.save();c.globalAlpha=alpha;c.translate(cx,cy);c.rotate(ang+Math.PI);
-  const secs=[[0,3,'#3d78cc'],[3,15,'#f4f0e6'],[15,340,'#e6c58c'],[340,347,'#c8ccd3'],[347,356,'#1c1c1c'],[356,430,'#6a2c12'],[430,446,'#e8d6a5'],[446,452,'#1c1c1c'],[452,578,'#241109'],[578,620,'#0f0f0f']];
+  const secs=[[0,3,K.tip],[3,15,'#f4f0e6'],[15,340,K.shaft],[340,347,K.joint],[347,356,'#1c1c1c'],[356,430,K.fore],[430,446,K.inlay],[446,452,'#1c1c1c'],[452,578,K.wrap],[578,620,K.butt]];
   for(const [a,b,col] of secs){poly(x0+a,x0+b);c.fillStyle=col;c.fill();}
   // decorative points on the forearm
-  c.fillStyle='#e8d6a5';for(let i=0;i<4;i++){const y=i%2?1:-1;c.beginPath();c.moveTo(x0+356,y*wAt(x0+356)*0.2);c.lineTo(x0+410,y*wAt(x0+410)*0.95);c.lineTo(x0+356,y*wAt(x0+356)*0.95);c.closePath();c.globalAlpha=alpha*0.5;c.fill();}
+  c.fillStyle=K.inlay;for(let i=0;i<4;i++){const y=i%2?1:-1;c.beginPath();c.moveTo(x0+356,y*wAt(x0+356)*0.2);c.lineTo(x0+410,y*wAt(x0+410)*0.95);c.lineTo(x0+356,y*wAt(x0+356)*0.95);c.closePath();c.globalAlpha=alpha*0.5;c.fill();}
   c.globalAlpha=alpha;
   // wrap texture
   c.strokeStyle='rgba(255,255,255,.06)';c.lineWidth=1;for(let x=x0+456;x<x0+576;x+=4){c.beginPath();c.moveTo(x,-wAt(x));c.lineTo(x+2,wAt(x));c.stroke();}
@@ -963,11 +1001,11 @@ function drawGuide(c,alpha){
       const b=res.hit.b,nx=(b.x-gx)/(2*R),ny=(b.y-gy)/(2*R),cos=clamp(dx*nx+dy*ny,0,1);
       if(!legal.includes(b.id)){c.strokeStyle='#ff4b4b';c.lineWidth=2.4;const q=R*0.55;c.beginPath();c.moveTo(gx-q,gy-q);c.lineTo(gx+q,gy+q);c.moveTo(gx+q,gy-q);c.lineTo(gx-q,gy+q);c.stroke();}
       else{
-        const ol=(long?300:55)*(0.25+0.75*cos);line(b.x,b.y,b.x+nx*ol,b.y+ny*ol,'rgba(255,255,255,.92)',1.6);
+        const af=cueFx(g.players[g.cur]).aim,ol=(long?300:55)*af*(0.25+0.75*cos);line(b.x,b.y,b.x+nx*ol,b.y+ny*ol,'rgba(255,255,255,.92)',1.6);
         let tx=dx-nx*cos,ty=dy-ny*cos;const tl=Math.hypot(tx,ty);
         const f=NAT+(g.spin.y-NAT)*Math.exp(-res.t/420),fx=dx*f*0.62,fy=dy*f*0.62;
         let vx=tx+fx,vy=ty+fy;const vl=Math.hypot(vx,vy);
-        if(vl>0.02){const cl=(long?150:30)*clamp(vl,0.15,1);line(gx,gy,gx+vx/vl*cl,gy+vy/vl*cl,'rgba(140,200,255,.85)',1.3);}
+        if(vl>0.02){const cl=(long?150:30)*af*clamp(vl,0.15,1);line(gx,gy,gx+vx/vl*cl,gy+vy/vl*cl,'rgba(140,200,255,.85)',1.3);}
         void tl;
       }
     }else{
@@ -997,9 +1035,9 @@ function render(){
     const ai=g.players[g.cur].isAI;
     if(g.bih&&!ai){const t=performance.now()/1000;ctx.strokeStyle=`rgba(255,213,92,${0.55+0.35*Math.sin(t*5)})`;ctx.lineWidth=1.6;ctx.setLineDash([4,4]);ctx.beginPath();ctx.arc(cue.x,cue.y,R*2.1,0,7);ctx.stroke();ctx.setLineDash([]);}
     if(!(ai&&g.ai&&(g.ai.phase==='think'||g.ai.phase==='place')))drawGuide(ctx,ai?0.45:1);
-    if(!(ai&&g.ai&&g.ai.phase==='think'))drawCue(ctx,cue.x,cue.y,g.aim,6+g.power*95,1);
+    if(!(ai&&g.ai&&g.ai.phase==='think'))drawCue(ctx,cue.x,cue.y,g.aim,6+g.power*95,1,g.players[g.cur].cue);
   }else if(g.state==='strike'){
-    const s=g.strike,k=clamp(s.t/0.085,0,1);drawCue(ctx,cue.x,cue.y,s.ang,(6+s.pow*95)*(1-k)-2*k,1);
+    const s=g.strike,k=clamp(s.t/0.085,0,1);drawCue(ctx,cue.x,cue.y,s.ang,(6+s.pow*95)*(1-k)-2*k,1,g.players[g.cur].cue);
   }else if(g.state==='rolling'&&g.shot&&performance.now()){/* cue retracts out of view */}
   // popups in screen space
   ctx.setTransform(view.dpr,0,0,view.dpr,0,0);ctx.textAlign='center';ctx.textBaseline='middle';
@@ -1062,7 +1100,7 @@ function updateHUD(){
 function updateClockUI(){
   const g=game;if(!g)return;
   for(let i=0;i<2;i++){const bar=$('#pp'+i+' .bar');let f=0;
-    if(g.cur===i&&g.state==='aim'&&!g.over){if(cfg.clock&&!g.players[i].isAI)f=clamp(g.clockLeft/cfg.clock,0,1);else if(g.players[i].isAI)f=1;}
+    if(g.cur===i&&g.state==='aim'&&!g.over){if(cfg.clock&&!g.players[i].isAI)f=clamp(g.clockLeft/(g.clockMax||cfg.clock),0,1);else if(g.players[i].isAI)f=1;}
     bar.style.strokeDashoffset=String(157*(1-f));bar.classList.toggle('warn',cfg.clock&&f>0&&f<0.25&&!g.players[i].isAI);}
   const p=$('#powerFill'),pct=$('#powerPct');const pw=game.state==='aim'?game.power:(game.state==='strike'?game.strike.pow:0);
   p.style.height=(pw*100)+'%';pct.textContent=pw>0.005?Math.round(pw*100)+'%':'';
@@ -1157,14 +1195,19 @@ $('#menuBtn').addEventListener('click',()=>{if(!game||game.over)showMenu();else 
 const ov=$('#overlay');
 function hideOverlay(){ov.classList.remove('show');ov.innerHTML='';paused=false;}
 function seg(act,opts,cur){return `<div class="seg">${opts.map(([v,l])=>`<button data-act="${act}" data-v="${v}" class="${String(cur)===String(v)?'on':''}">${l}</button>`).join('')}</div>`;}
-function showMenu(){
+function coinPill(){return `<span class="coins"><span class="coin"></span>${cfg.coins.toLocaleString()}</span>`;}
+function today(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+function showMenu(msg){
   paused=true;
+  if(cfg.daily!==today()){cfg.daily=today();cfg.coins+=100;saveCfg();msg=msg||'Daily bonus: +100 coins';}
   if(cfg.lvl>cfg.progress)cfg.lvl=cfg.progress;
   const lad=AIS.map((a,i)=>{const locked=i>cfg.progress;return `<button class="opp ${cfg.lvl===i?'on':''} ${locked?'locked':''}" data-act="lvl" data-v="${i}">
     <div class="av" style="background:linear-gradient(145deg,${a.col},${shade(a.col,-0.55)})">${a.ini}</div>
-    <div><div class="nm">${a.name}</div><div class="st">${'★'.repeat(i+1)}${'☆'.repeat(5-i)}</div><div class="tg">${locked?`Beat ${AIS[i-1].name} to unlock`:(cfg.best[i]?`Best score ${cfg.best[i].toLocaleString()}${cfg.beat[i]?' · beaten ✓':''}`:a.tag)}</div></div>${locked?'<span class="lk">🔒</span>':''}</button>`;}).join('');
+    <div><div class="nm">${a.name}</div><div class="st">${'★'.repeat(i+1)}${'☆'.repeat(5-i)}</div><div class="tg fee">${FEES[i]?`Entry ${FEES[i]}`:'Free'} · Win ${PRIZES[i]}</div><div class="tg">${locked?`Beat ${AIS[i-1].name} to unlock`:(cfg.best[i]?`Best score ${cfg.best[i].toLocaleString()}${cfg.beat[i]?' · beaten ✓':''}`:a.tag)}</div></div>${locked?'<span class="lk">🔒</span>':''}</button>`;}).join('');
   ov.innerHTML=`<div class="card">
+   <div class="topbar">${coinPill()}<button class="shopbtn" data-act="shop">Cue Shop · ${CUES[cfg.cue].name}</button></div>
    <div class="logo"><div class="crown">♛</div><h1>POCKET KINGS</h1><p>8-BALL · 9-BALL · SNOOKER</p></div>
+   ${msg?`<div class="msg">${msg}</div>`:''}
    <div class="sec"><label>GAME</label>${seg('mode',[['8','8-Ball'],['9','9-Ball'],['S','Snooker']],cfg.mode)}</div>
    <div class="sec"><label>OPPONENT</label>${seg('opp',[['ai','vs Computer'],['2p','2 Players (same device)']],cfg.opp)}</div>
    ${cfg.opp==='ai'?`<div class="sec"><label>COMPUTER LADDER: BEAT EACH ONE TO UNLOCK THE NEXT</label><div class="ladder">${lad}</div></div>`:''}
@@ -1175,10 +1218,28 @@ function showMenu(){
      <div><span class="lbl">CLOTH</span><div class="swatches">${FELTS.map((f,i)=>`<button class="sw ${cfg.felt===i?'on':''}" title="${f.n}" data-act="felt" data-v="${i}" style="background:${f.c}"></button>`).join('')}</div></div>
      <div><span class="lbl">SOUND</span>${seg('sound',[[1,'On'],[0,'Off']],cfg.sound?1:0)}</div>
    </div>
-   <button class="play" data-act="play">PLAY</button>
+   <button class="play" data-act="play">${cfg.opp==='ai'&&FEES[cfg.lvl]?`PLAY · ENTRY ${FEES[cfg.lvl]}`:'PLAY'}</button>
    <div class="foot">Wins vs computer: ${cfg.wins} / ${cfg.games} · High score: ${(cfg.hi||0).toLocaleString()} · <a data-act="help">How to play</a></div>
   </div>`;
   ov.classList.add('show');
+}
+function statBars(st){return STAT_NAMES.map((n,i)=>`<div class="bar"><span>${n}</span><i>${'<b></b>'.repeat(st[i])}${'<em></em>'.repeat(5-st[i])}</i></div>`).join('');}
+function showShop(msg){
+  paused=true;
+  ov.innerHTML=`<div class="card"><div class="topbar">${coinPill()}<button class="shopbtn" data-act="menu">← Back to menu</button></div>
+   <div class="logo"><h1 style="font-size:24px">CUE SHOP</h1><p>BETTER CUES AIM, HIT AND SPIN BETTER</p></div>
+   ${msg?`<div class="msg">${msg}</div>`:''}
+   <div class="shop">${CUES.map((c,i)=>{const own=cfg.cues.includes(i),eq=cfg.cue===i;
+     return `<div class="cuecard ${eq?'on':''}"><canvas class="cueprev" data-i="${i}" width="560" height="44"></canvas>
+       <div class="cn">${c.name}</div>${statBars(c.st)}
+       ${eq?`<button class="btn sm" disabled>Equipped</button>`:own?`<button class="btn sm" data-act="equip" data-v="${i}">Equip</button>`:`<button class="btn sm buy ${cfg.coins<c.price?'poor':''}" data-act="buy" data-v="${i}"><span class="coin"></span>${c.price.toLocaleString()}</button>`}</div>`;}).join('')}</div>
+   <div class="foot">Aim: longer aim lines · Power: harder break and long shots · Spin: stronger draw, follow and side · Time: extra seconds on the shot clock. Earn coins by beating the computer ladder, scoring points, and a daily bonus.</div></div>`;
+  ov.classList.add('show');
+  ov.querySelectorAll('.cueprev').forEach(cv2=>{const c2=cv2.getContext('2d'),sc=cv2.width/640;c2.setTransform(sc,0,0,sc,0,0);drawCue(c2,-R+3,20/sc,Math.PI,0,1,+cv2.dataset.i);});
+}
+function tryStart(){
+  if(cfg.opp==='ai'&&!/[?&]demo/.test(location.search)){const fee=FEES[cfg.lvl]||0;if(cfg.coins<fee)return showMenu(`You need ${fee} coins to play ${AIS[cfg.lvl].name}. Beat an easier opponent to earn more.`);cfg.coins-=fee;}
+  saveCfg();startGame();
 }
 function showPause(){
   paused=true;
@@ -1202,11 +1263,12 @@ function showHelp(back){
    <h3>9-BALL</h3><p>Always hit the lowest-numbered ball first. Any ball potted on a legal shot keeps your turn, and whoever legally pots the 9 wins, even on the break or in a combo.</p>
    <h3>SNOOKER</h3><p>Pot a red (1 point), then any colour: yellow 2, green 3, brown 4, blue 5, pink 6, black 7. Colours go back on their spots while reds remain. When the reds are gone, pot the colours in order from yellow to black. Highest score wins the frame. A foul gives your opponent at least 4 points (more if a higher-value ball was involved); if the cue ball goes in, they play from the D.</p>
    <h3>FOULS</h3><p>Potting the cue ball, missing every ball, hitting the wrong ball first, no ball reaching a cushion after contact, or running out the shot clock. Your opponent then gets <b>ball in hand</b>: they can place the cue ball anywhere.</p>
+   <h3>COINS &amp; CUES</h3><p>Each computer opponent has an entry fee and a prize. Win to collect the prize, and every game also pays a bonus based on your score. You get 100 free coins each day, and Rookie Rex is always free. Spend coins in the <b>Cue Shop</b>: better cues give longer aim lines, more power, stronger spin and extra shot-clock time.</p>
    <h3>SCORING</h3><ul><li>+100 per ball (+300 for the 8 or the 9)</li><li>Streak: +50 for each ball in a row without missing</li><li>+75 for each extra ball in the same shot · +100 bank shot · +100 combo · +75 long pot</li><li>Speed bonus (shot clock on): up to +120 for potting quickly</li><li>+500 for the win · +1000 for break-and-run · −100 per foul · −50 for running out of time</li></ul>
    <button class="play" data-act="${back}">BACK</button></div>`;
   ov.classList.add('show');
 }
-function showResult(winner,reason,unlocked){
+function showResult(winner,reason,unlocked,coins){
   const g=game,P=g.players,human=g.vsAI&&!P[0].isAI;
   const title=human?(winner===0?'YOU WIN!':`${P[1].name} WINS`):`${P[winner].name} WINS!`;
   const col=human&&winner!==0?'var(--bad)':'var(--acc)';
@@ -1216,7 +1278,8 @@ function showResult(winner,reason,unlocked){
    <div class="why">${reason||(winner===0||!human?'Clean finish.':'Better luck next time.')}${unlocked?` <span class="new">NEW OPPONENT UNLOCKED</span>`:''}</div>
    <table class="stats"><tr><th></th><th>${P[0].name}</th><th>${P[1].name}</th></tr>
    <tr><td>Score</td><td class="big">${P[0].score.toLocaleString()}</td><td class="big">${P[1].score.toLocaleString()}</td></tr>
-   ${row('Balls potted',p=>p.potted)}${row(g.mode==='S'?'Highest break':'Best streak',p=>p.bestStreak)}${row('Shots',p=>p.shots)}${row('Fouls',p=>p.fouls)}</table>
+   ${row('Cue',p=>cueOf(p).name)}${row('Balls potted',p=>p.potted)}${row(g.mode==='S'?'Highest break':'Best streak',p=>p.bestStreak)}${row('Shots',p=>p.shots)}${row('Fouls',p=>p.fouls)}</table>
+   <div class="earn"><span class="coin"></span>+${coins||0} coins${g.vsAI&&winner===0&&PRIZES[g.lvl]?` <small>(prize ${PRIZES[g.lvl]} + score bonus)</small>`:''} · balance ${cfg.coins.toLocaleString()}</div>
    ${next?`<button class="play" data-act="next">NEXT: ${AIS[g.lvl+1].name.toUpperCase()} →</button>`:`<button class="play" data-act="restart">PLAY AGAIN</button>`}
    ${next?`<button class="btn" data-act="restart">Rematch</button>`:''}
    <button class="btn" data-act="menu">Main menu</button></div>`;
@@ -1233,10 +1296,13 @@ ov.addEventListener('click',e=>{
   else if(a==='clock'){cfg.clock=+v;saveCfg();showMenu();}
   else if(a==='felt'){cfg.felt=+v;saveCfg();buildTable();showMenu();}
   else if(a==='sound'){cfg.sound=v==='1';saveCfg();showMenu();}
-  else if(a==='play'){saveCfg();startGame();}
+  else if(a==='play'){tryStart();}
+  else if(a==='shop')showShop();
+  else if(a==='buy'){const i=+v,c=CUES[i];if(cfg.coins<c.price)showShop(`You need ${(c.price-cfg.coins).toLocaleString()} more coins for the ${c.name}.`);else{cfg.coins-=c.price;cfg.cues.push(i);cfg.cue=i;saveCfg();FX.good();showShop(`${c.name} bought and equipped!`);}}
+  else if(a==='equip'){cfg.cue=+v;saveCfg();showShop();}
   else if(a==='resume')hideOverlay();
-  else if(a==='restart'){startGame();}
-  else if(a==='next'){cfg.lvl=Math.min(cfg.progress,game.lvl+1);saveCfg();startGame();}
+  else if(a==='restart'){tryStart();}
+  else if(a==='next'){cfg.lvl=Math.min(cfg.progress,game.lvl+1);tryStart();}
   else if(a==='menu')showMenu();
   else if(a==='help')showHelp(game&&!game.over&&ov.querySelector('[data-act=resume]')?'pauseback':'menuback');
   else if(a==='pauseback')showPause();
