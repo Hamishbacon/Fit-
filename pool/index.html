@@ -50,6 +50,12 @@ button{font:inherit;color:inherit;cursor:pointer}
 #spinBall::before{left:50%;top:10%;bottom:10%;width:1px}
 #spinBall::after{top:50%;left:10%;right:10%;height:1px}
 #spinDot{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;left:50%;top:50%;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ff7b7b,#c81616);box-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none;z-index:1}
+#spinW{gap:14px}.wcol{display:flex;flex-direction:column;align-items:center;gap:6px}
+#fineWheel{width:34px;height:150px;border-radius:12px;cursor:ns-resize;touch-action:none;border:1px solid var(--line);
+  background:linear-gradient(90deg,rgba(0,0,0,.55),rgba(255,255,255,.10) 45%,rgba(0,0,0,.55)),repeating-linear-gradient(0deg,#2a3440 0 3px,#566373 3px 4px,#1a2129 4px 8px);
+  box-shadow:inset 0 10px 12px -6px rgba(0,0,0,.8),inset 0 -10px 12px -6px rgba(0,0,0,.8)}
+#stage.portrait #spinW{flex-direction:row;align-items:flex-end}
+#stage.portrait #fineWheel{width:120px;height:34px;cursor:ew-resize;background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(255,255,255,.10) 45%,rgba(0,0,0,.55)),repeating-linear-gradient(90deg,#2a3440 0 3px,#566373 3px 4px,#1a2129 4px 8px)}
 #powerW{right:14px;top:50%;transform:translateY(-50%)}
 #powerTrack{width:34px;height:min(56vh,300px);border-radius:18px;background:linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.25));border:1px solid var(--line);position:relative;overflow:hidden;cursor:ns-resize;touch-action:none;box-shadow:inset 0 2px 10px rgba(0,0,0,.6)}
 #powerFill{position:absolute;left:0;right:0;top:0;height:0;background:linear-gradient(#3ee07f,#f5d33b 55%,#ff4d3d);opacity:.92}
@@ -59,6 +65,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 #stage.portrait #spinW{top:auto;bottom:12px;transform:none}
 #stage.portrait #powerW{top:auto;bottom:12px;transform:none}
 #stage.portrait #powerTrack{height:118px}
+#stage.portrait #hint{display:none}
 #stage.portrait #spinBall{width:58px;height:58px}
 #toast{position:absolute;left:50%;top:10px;transform:translate(-50%,-8px);padding:9px 18px;border-radius:24px;background:rgba(10,14,19,.9);border:1px solid var(--line);font-weight:800;font-size:14px;letter-spacing:.3px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis;box-shadow:0 8px 28px rgba(0,0,0,.45)}
 #toast.show{opacity:1;transform:translate(-50%,0)}
@@ -127,7 +134,7 @@ table.stats .big{font-size:20px;font-weight:900;color:var(--acc)}
   .avatar{width:34px;height:34px;font-size:11px}.avatar svg{width:40px;height:40px}
   .pp{padding:3px 8px 3px 3px}.pp.right{padding:3px 3px 3px 8px}.pscore{font-size:15px}
   .bi{width:13px;height:13px;font-size:0}.bi::before{width:6px;height:6px}
-  #spinBall{width:52px;height:52px}#powerTrack{height:min(48vh,220px)}
+  #spinBall{width:52px;height:52px}#fineWheel{height:90px}#powerTrack{height:min(48vh,220px)}
 }
 </style>
 </head>
@@ -147,7 +154,7 @@ table.stats .big{font-size:20px;font-weight:900;color:var(--acc)}
   </header>
   <main id="stage">
     <canvas id="cv"></canvas>
-    <div class="widget" id="spinW"><div id="spinBall"><div id="spinDot"></div></div><span>SPIN</span></div>
+    <div class="widget" id="spinW"><div class="wcol"><div id="spinBall"><div id="spinDot"></div></div><span>SPIN</span></div><div class="wcol"><div id="fineWheel" title="Drag to fine-tune your aim"></div><span>FINE AIM</span></div></div>
     <div class="widget" id="powerW"><span id="powerPct"></span><div id="powerTrack"><div id="powerFill"></div><div id="powerCue"></div></div><span>POWER</span></div>
     <div id="toast"></div>
     <div id="hint"></div>
@@ -611,7 +618,7 @@ function startGame(){
 }
 function humanTurn(){return game&&!paused&&game.state==='aim'&&!game.players[game.cur].isAI;}
 function startTurn(){
-  const g=game;g.state='aim';g.power=0;input.lastA=null;g.clockLeft=cfg.clock||0;g.spin={x:0,y:0};setSpinUI();
+  const g=game;g.state='aim';g.power=0;input.lock=null;g.clockLeft=cfg.clock||0;g.spin={x:0,y:0};setSpinUI();
   const P=g.players[g.cur];
   if(P.isAI)g.ai={gen:aiThink(),plan:null,phase:'think',t:0};
   else g.ai=null;
@@ -672,7 +679,7 @@ function update(dt){
     }
     if(g.players[g.cur].isAI)runAI(dt);
     if(keys.charging){g.power=clamp(g.power+dt/1.3,0,1);}
-    if(keys.left||keys.right){const sp=(keys.shift?0.5:0.05)*dt*(keys.left?-1:1);g.aim+=sp;}
+    if(keys.left||keys.right){const sp=(keys.shift?0.45:0.06)*dt*(keys.left?-1:1);g.aim+=sp;if(input.last){const q=toScreen(input.last.x,input.last.y),r=cv.getBoundingClientRect();input.lock={x:q.x+r.left,y:q.y+r.top};}}
   }else if(g.state==='strike'){
     g.strike.t+=dt;if(g.strike.t>=0.085)releaseStrike();
   }else if(g.state==='rolling'){
@@ -1048,7 +1055,7 @@ function updateHUD(){
   let hint='';
   if(!g.over&&!P.isAI&&g.state==='aim'){
     if(g.bih)hint=g.kitchen==='D'?'Ball in hand: drag the cue ball inside the D':g.kitchen?'Ball in hand: drag the cue ball behind the line':'Ball in hand: drag the cue ball anywhere';
-    else hint=matchMedia('(pointer:coarse)').matches?'Drag on the table to aim · pull the power bar down to shoot':'Aim with the mouse · click & drag back to shoot (or use the power bar)';
+    else hint=matchMedia('(pointer:coarse)').matches?'Drag on the table to aim · FINE AIM wheel to adjust · pull the power bar down to shoot':'Aim with the mouse (Shift = fine aim) · click & drag back to shoot';
   }
   $('#hint').textContent=hint;
 }
@@ -1068,18 +1075,14 @@ function setSpinUI(){const s=game?game.spin:{x:0,y:0};const d=$('#spinDot');d.st
 /* =====================================================================
    INPUT
    ===================================================================== */
-const input={mode:null,sx:0,sy:0,off:null,id:null,lastA:null};
+const input={mode:null,sx:0,sy:0,off:null,id:null,last:null,lock:null};
 const keys={left:false,right:false,shift:false,charging:false};
-const SENS={precise:0.3,normal:0.55,direct:1};
-function setAimTo(p){
-  const c=game.balls[0],dx=p.x-c.x,dy=p.y-c.y;
-  if(dx*dx+dy*dy<R*R*5){input.lastA=null;return;}
-  const a=Math.atan2(dy,dx),k=SENS[cfg.aimSens]||0.55;
-  if(k>=1){game.aim=a;input.lastA=a;return;}
-  if(input.lastA==null){input.lastA=a;return;}
-  let d=a-input.lastA;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;
-  input.lastA=a;game.aim+=clamp(d,-0.5,0.5)*k;
-}
+const FINE={precise:0.0004,normal:0.0009,direct:0.002};   // radians per screen pixel on the fine-aim wheel
+const TURN={precise:650,normal:400,direct:220};               // touch drag: table units of finger travel per radian
+// mouse: the cue points straight at the cursor (steady and predictable)
+function aimAt(p){const c=game.balls[0],dx=p.x-c.x,dy=p.y-c.y;if(dx*dx+dy*dy<R*R*6)return;game.aim=Math.atan2(dy,dx);}
+// relative turning: sideways movement (in table units) rotates the cue at a constant rate
+function turnBy(wx,wy,per){const tx=-Math.sin(game.aim),ty=Math.cos(game.aim);game.aim+=(wx*tx+wy*ty)/per;}
 cv.addEventListener('pointerdown',e=>{
   audio();if(!humanTurn())return;
   const p=toWorld(e.clientX,e.clientY),c=game.balls[0];
@@ -1087,7 +1090,7 @@ cv.addEventListener('pointerdown',e=>{
   input.id=e.pointerId;
   if(game.bih&&Math.hypot(p.x-c.x,p.y-c.y)<R*2.8){input.mode='drag';input.off={x:c.x-p.x,y:c.y-p.y};return;}
   if(e.pointerType==='mouse'){if(e.button!==0)return;input.mode='pull';input.sx=e.clientX;input.sy=e.clientY;game.power=0;}
-  else{input.mode='aim';input.lastA=null;setAimTo(p);}
+  else{input.mode='aim';input.last=p;}
 });
 cv.addEventListener('pointermove',e=>{
   if(!game)return;const p=toWorld(e.clientX,e.clientY);
@@ -1096,8 +1099,13 @@ cv.addEventListener('pointermove',e=>{
     else{// slide along: try each axis
       if(validSpot(x,c.y,game.kitchen,0)){c.x=x;c.lx=x;}else if(validSpot(c.x,y,game.kitchen,0)){c.y=y;c.ly=y;}}
   }else if(input.mode==='pull'&&humanTurn()){const d=Math.hypot(e.clientX-input.sx,e.clientY-input.sy);game.power=clamp(d/230,0,1);}
-  else if(input.mode==='aim'&&humanTurn())setAimTo(p);
-  else if(!input.mode&&e.pointerType==='mouse'&&humanTurn())setAimTo(p);
+  else if(input.mode==='aim'&&humanTurn()){turnBy(p.x-input.last.x,p.y-input.last.y,TURN[cfg.aimSens]||400);input.last=p;}
+  else if(!input.mode&&e.pointerType==='mouse'&&humanTurn()){
+    if(e.shiftKey&&input.last){turnBy(p.x-input.last.x,p.y-input.last.y,1100);input.lock={x:e.clientX,y:e.clientY};}
+    else if(input.lock&&Math.hypot(e.clientX-input.lock.x,e.clientY-input.lock.y)<45){}
+    else{input.lock=null;aimAt(p);}
+    input.last=p;
+  }
 });
 function endPointer(e){
   if(input.mode==='pull'&&humanTurn()){if(game.power>0.03)shoot(game.aim,game.power,game.spin.x,game.spin.y);else game.power=0;}
@@ -1118,6 +1126,14 @@ spinBall.addEventListener('pointerdown',e=>{spinDrag=true;try{spinBall.setPointe
 spinBall.addEventListener('pointermove',e=>{if(spinDrag)spinAt(e);});
 spinBall.addEventListener('pointerup',()=>spinDrag=false);
 spinBall.addEventListener('dblclick',()=>{if(humanTurn()){game.spin={x:0,y:0};setSpinUI();}});
+const wheel=$('#fineWheel');let wheelDrag=null,wheelOff=0;
+wheel.addEventListener('pointerdown',e=>{audio();if(!humanTurn())return;try{wheel.setPointerCapture(e.pointerId);}catch(_){}wheelDrag={x:e.clientX,y:e.clientY};e.preventDefault();});
+wheel.addEventListener('pointermove',e=>{if(!wheelDrag||!humanTurn())return;
+  const d=view.rot?(e.clientX-wheelDrag.x):(wheelDrag.y-e.clientY);wheelDrag={x:e.clientX,y:e.clientY};
+  game.aim+=d*(FINE[cfg.aimSens]||0.0009);wheelOff+=d;
+  wheel.style.backgroundPosition=view.rot?`0 0,${wheelOff}px 0`:`0 0,0 ${-wheelOff}px`;
+  if(input.last){const q=toScreen(input.last.x,input.last.y),r=cv.getBoundingClientRect();input.lock={x:q.x+r.left,y:q.y+r.top};}});
+const wheelEnd=()=>{wheelDrag=null;};wheel.addEventListener('pointerup',wheelEnd);wheel.addEventListener('pointercancel',wheelEnd);
 addEventListener('keydown',e=>{
   if(e.key==='Escape'){if(game&&!game.over){paused?hideOverlay():showPause();}return;}
   if(!game||paused)return;
@@ -1154,7 +1170,7 @@ function showMenu(){
    ${cfg.opp==='ai'?`<div class="sec"><label>COMPUTER LADDER: BEAT EACH ONE TO UNLOCK THE NEXT</label><div class="ladder">${lad}</div></div>`:''}
    <div class="sec opts">
      <div><span class="lbl">AIM LINE</span>${seg('guide',[['long','Long'],['short','Short'],['off','Off']],cfg.guide)}</div>
-     <div><span class="lbl">AIM SPEED</span>${seg('sens',[['precise','Precise'],['normal','Normal'],['direct','Fast']],cfg.aimSens)}</div>
+     <div><span class="lbl">FINE AIM SPEED</span>${seg('sens',[['precise','Slow'],['normal','Normal'],['direct','Fast']],cfg.aimSens)}</div>
      <div><span class="lbl">SHOT CLOCK</span>${seg('clock',[[30,'30s'],[60,'60s'],[0,'Off']],cfg.clock)}</div>
      <div><span class="lbl">CLOTH</span><div class="swatches">${FELTS.map((f,i)=>`<button class="sw ${cfg.felt===i?'on':''}" title="${f.n}" data-act="felt" data-v="${i}" style="background:${f.c}"></button>`).join('')}</div></div>
      <div><span class="lbl">SOUND</span>${seg('sound',[[1,'On'],[0,'Off']],cfg.sound?1:0)}</div>
@@ -1177,8 +1193,8 @@ function showHelp(back){
   paused=true;
   ov.innerHTML=`<div class="card help"><div class="logo"><h1 style="font-size:22px">HOW TO PLAY</h1></div>
    <h3>CONTROLS</h3><ul>
-   <li><b>Mouse:</b> move to aim (circle around the cue ball to turn the cue; set AIM SPEED in the menu). Click and drag back to pull the cue, then release to shoot. The further you drag, the harder you hit.</li>
-   <li><b>Touch:</b> drag anywhere on the table to aim, then pull the <b>power bar</b> on the right down and let go.</li>
+   <li><b>Mouse:</b> the cue points at your cursor. For tiny adjustments hold <b>Shift</b> while moving the mouse, or drag the <b>FINE AIM</b> wheel. Click and drag back to pull the cue, then release to shoot. The further you drag, the harder you hit.</li>
+   <li><b>Touch:</b> drag sideways anywhere on the table to turn the cue at a steady speed, use the <b>FINE AIM</b> wheel for small adjustments, then pull the <b>power bar</b> on the right down and let go.</li>
    <li><b>Spin:</b> tap the white ball on the left. Low = draw (backspin), high = follow, left/right = side spin off the cushions. Double-click to reset.</li>
    <li><b>Keyboard:</b> ← → fine aim (hold Shift for faster), ↑ ↓ spin, hold Space to power up and release to shoot, Esc to pause.</li>
    <li>The <b>aim line</b> shows where the cue ball goes, the ghost ball where it makes contact, the white line the object ball's path and the blue line where the cue ball heads after contact. A red ✕ means that ball isn't legal to hit first.</li></ul>
