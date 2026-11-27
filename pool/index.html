@@ -537,25 +537,21 @@ function buildTable(){
   const dm=-CUSH-WOOD/2-2;
   for(let i=1;i<8;i++){if(i===4)continue;dia(W*i/8,dm);dia(W*i/8,H-dm);}
   for(let i=1;i<4;i++){dia(dm,H*i/4);dia(W-dm,H*i/4);}
-  // cushions (bevelled)
-  const cush=shade(felt,-0.32);
-  c.fillStyle=cush;c.fillRect(-CUSH,-CUSH,W+2*CUSH,H+2*CUSH);
-  const strip=(pts,x0,y0,x1,y1)=>{const gg=c.createLinearGradient(x0,y0,x1,y1);gg.addColorStop(0,shade(felt,-0.62));gg.addColorStop(0.55,shade(felt,-0.3));gg.addColorStop(0.86,shade(felt,-0.06));gg.addColorStop(0.95,shade(felt,0.16));gg.addColorStop(1,shade(felt,-0.4));c.fillStyle=gg;c.beginPath();pts.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fill();};
-  strip([[-CUSH,-CUSH],[W+CUSH,-CUSH],[W,0],[0,0]],0,-CUSH,0,0);
-  strip([[-CUSH,H+CUSH],[W+CUSH,H+CUSH],[W,H],[0,H]],0,H+CUSH,0,H);
-  strip([[-CUSH,-CUSH],[0,0],[0,H],[-CUSH,H+CUSH]],-CUSH,0,0,0);
-  strip([[W+CUSH,-CUSH],[W,0],[W,H],[W+CUSH,H+CUSH]],W+CUSH,0,W,0);
-  // felt
+  // leather pocket caps sit in the wood, under the cushions
+  for(const p of POCKETS){
+    const cap=p.dr+13;
+    c.save();c.shadowColor='rgba(0,0,0,.55)';c.shadowBlur=8*view.s*view.dpr;
+    c.beginPath();c.arc(p.x+p.dx*3,p.y+p.dy*3,cap,0,7);
+    g=c.createRadialGradient(p.x-p.dx*6-4,p.y-p.dy*6-6,2,p.x,p.y,cap);g.addColorStop(0,'#5a3a22');g.addColorStop(.55,'#3a2313');g.addColorStop(1,'#160b05');c.fillStyle=g;c.fill();c.restore();
+    c.setLineDash([2.2,2.6]);c.strokeStyle='rgba(255,220,170,.32)';c.lineWidth=0.9;c.beginPath();c.arc(p.x+p.dx*3,p.y+p.dy*3,cap-3.5,0,7);c.stroke();c.setLineDash([]);
+  }
+  // cloth, running into the pocket mouths
   feltPath(c);c.fillStyle=felt;c.fill();
   c.save();feltPath(c);c.clip();
-  // cloth texture
   const nc=document.createElement('canvas');nc.width=nc.height=160;const nx=nc.getContext('2d'),id=nx.createImageData(160,160);
   for(let i=0;i<id.data.length;i+=4){const v=Math.random()*255;id.data[i]=id.data[i+1]=id.data[i+2]=v;id.data[i+3]=18;}
   nx.putImageData(id,0,0);c.fillStyle=c.createPattern(nc,'repeat');c.fillRect(-CUSH,-CUSH,W+2*CUSH,H+2*CUSH);
-  // lamp light
   g=c.createRadialGradient(W/2,H/2,40,W/2,H/2,W*0.62);g.addColorStop(0,'rgba(255,255,230,.16)');g.addColorStop(.55,'rgba(255,255,230,.03)');g.addColorStop(1,'rgba(0,0,0,.32)');c.fillStyle=g;c.fillRect(-CUSH,-CUSH,W+2*CUSH,H+2*CUSH);
-  // cushion shadow on the cloth
-  c.filter=`blur(${Math.max(1,4*view.s*view.dpr)}px)`;feltPath(c);c.strokeStyle='rgba(0,0,0,.45)';c.lineWidth=10;c.stroke();c.filter='none';
   // markings
   if(game&&game.mode==='S'){
     c.strokeStyle='rgba(255,255,255,.32)';c.lineWidth=1.3;c.beginPath();c.moveTo(BAULK,0);c.lineTo(BAULK,H);c.stroke();
@@ -566,29 +562,32 @@ function buildTable(){
     c.strokeStyle='rgba(255,255,255,.07)';c.lineWidth=1.2;c.beginPath();c.moveTo(W/4,0);c.lineTo(W/4,H);c.stroke();
   }
   c.font='900 44px Georgia,serif';c.textAlign='center';c.textBaseline='middle';c.fillStyle='rgba(255,255,255,.035)';c.fillText('♛',W/2,H/2-4);
+  // shadow the cushions cast on the cloth (jaws included)
+  c.filter=`blur(${Math.max(1,4*view.s*view.dpr)}px)`;c.strokeStyle='rgba(0,0,0,.45)';c.lineWidth=10;
+  for(const rp of RAILPATHS){c.beginPath();rp.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();}
+  c.filter='none';
   c.restore();
-  // nose highlight line
-  c.strokeStyle='rgba(255,255,255,.10)';c.lineWidth=1;for(const p of RAILPATHS){c.beginPath();p.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();}
-  // pockets
-  c.save();c.beginPath();c.rect(-RAIL-20,-RAIL-20,W+2*RAIL+40,H+2*RAIL+40);c.rect(0,0,W,H);c.clip('evenodd');
+  // pocket holes with brass trim
   for(const p of POCKETS){
-    const cap=p.dr+13;
-    // leather pocket cap wrapping the rail
-    c.save();c.shadowColor='rgba(0,0,0,.55)';c.shadowBlur=8*view.s*view.dpr;
-    c.beginPath();c.arc(p.x+p.dx*3,p.y+p.dy*3,cap,0,7);
-    g=c.createRadialGradient(p.x-p.dx*6-4,p.y-p.dy*6-6,2,p.x,p.y,cap);g.addColorStop(0,'#5a3a22');g.addColorStop(.55,'#3a2313');g.addColorStop(1,'#160b05');c.fillStyle=g;c.fill();c.restore();
-    // stitching
-    c.setLineDash([2.2,2.6]);c.strokeStyle='rgba(255,220,170,.32)';c.lineWidth=0.9;c.beginPath();c.arc(p.x+p.dx*3,p.y+p.dy*3,cap-3.5,0,7);c.stroke();c.setLineDash([]);
-    // polished brass trim
-    c.beginPath();c.arc(p.x,p.y,p.dr+3,0,7);g=c.createLinearGradient(p.x-p.dr,p.y-p.dr,p.x+p.dr,p.y+p.dr);g.addColorStop(0,'#fff1c4');g.addColorStop(.35,'#c9a24f');g.addColorStop(.6,'#7a5a1e');g.addColorStop(1,'#e8cf86');c.strokeStyle=g;c.lineWidth=3;c.stroke();
-    // the hole, deepest towards the back
+    c.save();c.beginPath();c.rect(-RAIL-20,-RAIL-20,W+2*RAIL+40,H+2*RAIL+40);FELT.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.clip('evenodd');
+    c.beginPath();c.arc(p.x,p.y,p.dr+3,0,7);g=c.createLinearGradient(p.x-p.dr,p.y-p.dr,p.x+p.dr,p.y+p.dr);g.addColorStop(0,'#fff1c4');g.addColorStop(.35,'#c9a24f');g.addColorStop(.6,'#7a5a1e');g.addColorStop(1,'#e8cf86');c.strokeStyle=g;c.lineWidth=3;c.stroke();c.restore();
     c.beginPath();c.arc(p.x,p.y,p.dr,0,7);g=c.createRadialGradient(p.x+p.dx*7,p.y+p.dy*7,1,p.x,p.y,p.dr);g.addColorStop(0,'#000');g.addColorStop(.7,'#040404');g.addColorStop(.92,'#151515');g.addColorStop(1,'#2a2a2a');c.fillStyle=g;c.fill();
-    // inner lip highlight on the table side
     c.beginPath();const a0=Math.atan2(-p.dy,-p.dx);c.arc(p.x,p.y,p.dr-1.5,a0-1.1,a0+1.1);c.strokeStyle='rgba(255,255,255,.10)';c.lineWidth=1.5;c.stroke();
-    // a hint of the net
     c.strokeStyle='rgba(255,255,255,.035)';c.lineWidth=0.8;for(const k of [0.45,0.7]){c.beginPath();c.arc(p.x+p.dx*4,p.y+p.dy*4,p.dr*k,0,7);c.stroke();}
   }
-  c.restore();
+  // rubber cushions with angled jaws pointing into every pocket
+  for(const rp of RAILPATHS){
+    const horiz=rp[1][1]===rp[2][1];
+    const gg=horiz?c.createLinearGradient(0,rp[0][1],0,rp[1][1]):c.createLinearGradient(rp[0][0],0,rp[1][0],0);
+    gg.addColorStop(0,shade(felt,-0.62));gg.addColorStop(0.55,shade(felt,-0.3));gg.addColorStop(0.86,shade(felt,-0.06));gg.addColorStop(0.95,shade(felt,0.16));gg.addColorStop(1,shade(felt,-0.4));
+    c.beginPath();rp.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fillStyle=gg;c.fill();
+    // jaw facings: the cut rubber faces catch the light
+    for(const [i0,i1] of [[0,1],[2,3]]){const [x0,y0]=rp[i0],[x1,y1]=rp[i1];
+      const jg=c.createLinearGradient(x0,y0,x1,y1);jg.addColorStop(0,'rgba(0,0,0,.35)');jg.addColorStop(1,'rgba(255,255,255,.28)');
+      c.strokeStyle=jg;c.lineWidth=1.6;c.beginPath();c.moveTo(x0,y0);c.lineTo(x1,y1);c.stroke();}
+    // nose highlight
+    c.strokeStyle='rgba(255,255,255,.12)';c.lineWidth=1;c.beginPath();c.moveTo(rp[1][0],rp[1][1]);c.lineTo(rp[2][0],rp[2][1]);c.stroke();
+  }
   // shadow sprite
   shadowCv=document.createElement('canvas');const ss=Math.ceil(R*3.2*view.s*view.dpr);shadowCv.width=shadowCv.height=ss;const sx=shadowCv.getContext('2d');
   g=sx.createRadialGradient(ss/2,ss/2,0,ss/2,ss/2,ss/2);g.addColorStop(0,'rgba(0,0,0,.55)');g.addColorStop(.45,'rgba(0,0,0,.35)');g.addColorStop(1,'rgba(0,0,0,0)');sx.fillStyle=g;sx.fillRect(0,0,ss,ss);
